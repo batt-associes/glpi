@@ -153,5 +153,12 @@
             "type": "composer",
             "url": "https://www.bioinformatics.org/phplabware/downloads/"
         }
+    },
+    "extra": {
+        "paas": {
+            "compile": [
+                "php bin/console dependencies install"
+            ]
+        }
     }
 }
