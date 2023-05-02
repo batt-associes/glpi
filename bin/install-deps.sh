@@ -7,3 +7,4 @@ export NVM_DIR="$HOME/.nvm"
 nvm install --lts --latest-npm
 
 php bin/console dependencies install
+php bin/console locales:compile
