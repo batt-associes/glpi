@@ -157,6 +157,7 @@
     "extra": {
         "paas": {
             "compile": [
+                "bash bin/install-npm.sh",
                 "php bin/console dependencies install"
             ]
         }
