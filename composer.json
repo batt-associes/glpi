@@ -170,8 +170,7 @@
     "extra": {
         "paas": {
             "compile": [
-                "bash bin/install-npm.sh",
-                "php bin/console dependencies install"
+                "bash bin/install-deps.sh"
             ]
         }
     }
