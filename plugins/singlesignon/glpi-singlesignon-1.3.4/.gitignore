@@ -1,0 +1,7 @@
+/locales/*.mo
+/nbproject
+/vendor
+/*.tar
+/*.tar.gz
+/*.tgz
+/*.zip
