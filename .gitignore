@@ -9,6 +9,7 @@
 !/marketplace/.gitkeep
 /plugins/*
 !/plugins/.gitkeep
+!/plugins/singlesignon/
 /files/*/*
 !/files/*/.gitkeep
 /.buildpath
