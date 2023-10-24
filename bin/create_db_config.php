@@ -1,6 +1,6 @@
 <?php
 $url = parse_url(getenv("DATABASE_URL"));
-$config = fopen("../config/config_db.php", "w") or die("Unable to open file!");
+$config = fopen("./config/config_db.php", "w") or die("Unable to open file!");
 
 fwrite($config, "<?php\n");
 fwrite($config, "class DB extends DBmysql\n");
