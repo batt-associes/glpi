@@ -4,7 +4,7 @@
 echo "$SECRET_FILE" | base64 -d > ./config/glpicrypt.key
 
 # Create database config file from environment
-php create_db_config.php
+php bin/create_db_config.php
 
 # Start default script for PHP apps
 "$HOME"/bin/run
