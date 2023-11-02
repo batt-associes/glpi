@@ -59,8 +59,10 @@ class PluginSinglesignonToolbox {
    public static function getCallbackParameters($name = null) {
       $data = [];
 
-      // TODO remove this only logs what is in server
-      foreach ($_SERVER as $parm => $value)  echo "$parm = '$value'\n";
+      // TODO Remove this: only logs some $_SERVER info
+      print_r($_SERVER['PATH_INFO']);
+      print_r($_SERVER['SCRIPT_FILENAME']);
+      print_r($_SERVER['SCRIPT_NAME']);
       if (isset($_SERVER['PATH_INFO'])) {
          $path_info = trim($_SERVER['PATH_INFO'], '/');
 
