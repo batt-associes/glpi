@@ -60,9 +60,7 @@ class PluginSinglesignonToolbox {
       $data = [];
 
       // TODO Remove this: only logs some $_SERVER info
-      print_r($_SERVER['PATH_INFO']);
-      print_r($_SERVER['SCRIPT_FILENAME']);
-      print_r($_SERVER['SCRIPT_NAME']);
+      foreach (array('PATH_INFO', 'SCRIPT_FILENAME', 'SCRIPT_NAME') as $value) echo "$value = '$_SERVER[$value]'\n";
       if (isset($_SERVER['PATH_INFO'])) {
          $path_info = trim($_SERVER['PATH_INFO'], '/');
 
