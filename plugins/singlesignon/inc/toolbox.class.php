@@ -59,7 +59,12 @@ class PluginSinglesignonToolbox {
    public static function getCallbackParameters($name = null) {
       $data = [];
 
+      print_r($_SERVER['PHP_SELF']);
+      print_r($_SERVER['SCRIPT_FILENAME']);
+      print_r($_SERVER['DOCUMENT_ROOT']);
+      print_r($_SERVER['SCRIPT_NAME']);
       print_r($_SERVER['PATH_INFO']);
+      print_r($_SERVER['ORIG_PATH_INFO']);
       if (isset($_SERVER['PATH_INFO'])) {
          print_r($_SERVER['PATH_INFO']);
          $path_info = trim($_SERVER['PATH_INFO'], '/');
