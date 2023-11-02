@@ -59,7 +59,9 @@ class PluginSinglesignonToolbox {
    public static function getCallbackParameters($name = null) {
       $data = [];
 
+      print_r($_SERVER['PATH_INFO']);
       if (isset($_SERVER['PATH_INFO'])) {
+         print_r($_SERVER['PATH_INFO']);
          $path_info = trim($_SERVER['PATH_INFO'], '/');
 
          $parts = explode('/', $path_info);
