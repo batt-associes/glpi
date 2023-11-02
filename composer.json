@@ -158,7 +158,8 @@
         "paas": {
             "compile": [
                 "bash bin/install-deps.sh"
-            ]
+            ],
+            "nginx-includes": ["./nginx.conf"]
         }
     }
 }
