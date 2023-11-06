@@ -276,7 +276,6 @@ class PluginSinglesignonProvider extends CommonDBTM {
          echo "</tr>\n";
 
          $url = PluginSinglesignonToolbox::getCallbackUrl($ID);
-         echo "<script>console.log('url: " . $url . "' );</script>";
          $fullUrl = $this->getBaseURL() . $url;
          echo "<tr class='tab_bg_1'>";
          echo "<td>" . __sso('Callback URL') . "</td>";
@@ -887,7 +886,6 @@ class PluginSinglesignonProvider extends CommonDBTM {
       if ($port != "80" && $port != "443") {
          $baseURL .= ":" . $_SERVER["SERVER_PORT"];
       }
-      echo "<script>console.log('baseURL: " . $baseURL . "' );</script>";
       return $baseURL;
    }
 
