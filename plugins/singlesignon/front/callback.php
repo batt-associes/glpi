@@ -50,6 +50,11 @@ if (!$signon_provider->fields['is_active']) {
    Html::displayErrorAndDie(__sso("Provider not active."), true);
 }
 
+// Toggle debug with environment variable
+if (getenv("PLUGIN_SSO_DEBUG") == '1') {
+   $signon_provider->debug = true;
+}
+
 $signon_provider->checkAuthorization();
 
 $test = PluginSinglesignonToolbox::getCallbackParameters('test');
