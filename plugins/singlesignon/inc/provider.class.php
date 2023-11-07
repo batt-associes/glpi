@@ -872,12 +872,10 @@ class PluginSinglesignonProvider extends CommonDBTM {
       }
       if (isset($_SERVER["HTTP_X_FORWARDED_HOST"])) {
          $baseURL .= $_SERVER["HTTP_X_FORWARDED_HOST"];
-         echo "<script>console.log('Forwarded: " . $baseURL . "' );</script>";
-      } else if (isset($_SERVER["HTTP_X_FORWARDED_HOST"])) {
-         $baseURL .= $_SERVER["HTTP_X_FORWARDED_HOST"];
+      } else if (isset($_SERVER['HTTP_HOST'])) {
+         $baseURL .= $_SERVER['HTTP_HOST'];
       } else {
          $baseURL .= $_SERVER["SERVER_NAME"];
-         echo "<script>console.log('Server name: " . $baseURL . "' );</script>";
       }
 
       $port = $_SERVER["SERVER_PORT"];
