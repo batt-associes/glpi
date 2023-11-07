@@ -35,10 +35,20 @@
 
 use Glpi\Application\ErrorHandler;
 
+/**
+ * @var array $CFG_GLPI
+ * @var \Laminas\I18n\Translator\TranslatorInterface $TRANSLATE
+ */
+global $CFG_GLPI, $TRANSLATE;
+
+$SECURITY_STRATEGY = 'no_check'; // locales must be accessible also on public pages
+
 $_GET['donotcheckversion']   = true;
 $dont_check_maintenance_mode = true;
 
 include('../inc/includes.php');
+
+session_write_close(); // Unlocks session to permit concurrent calls
 
 header("Content-Type: application/json; charset=UTF-8");
 
@@ -56,7 +66,6 @@ if ($is_cacheable) {
     header('Expires: ' . gmdate('D, d M Y H:i:s \G\M\T', time() + $max_age));
 }
 
-global $CFG_GLPI, $TRANSLATE;
 
 // Default response to send if locales cannot be loaded.
 // Prevent JS error for plugins that does not provide any translation files

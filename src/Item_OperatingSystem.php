@@ -43,6 +43,8 @@ class Item_OperatingSystem extends CommonDBRelation
     public static $items_id_2 = 'items_id';
     public static $checkItem_1_Rights = self::DONT_CHECK_ITEM_RIGHTS;
 
+    public static $mustBeAttached_1 = false;
+
 
     public static function getTypeName($nb = 0)
     {
@@ -81,6 +83,7 @@ class Item_OperatingSystem extends CommonDBRelation
      */
     public static function getFromItem(CommonDBTM $item, $sort = null, $order = null): DBmysqlIterator
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         if ($sort === null) {
@@ -145,6 +148,7 @@ class Item_OperatingSystem extends CommonDBRelation
      **/
     public static function showForItem(CommonDBTM $item, $withtemplate = 0)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
        //default options
@@ -539,6 +543,7 @@ class Item_OperatingSystem extends CommonDBRelation
 
     public static function getRelationMassiveActionsSpecificities()
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $specificities              = parent::getRelationMassiveActionsSpecificities();
@@ -560,6 +565,7 @@ class Item_OperatingSystem extends CommonDBRelation
 
     public static function showFormMassiveUpdate($ma)
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $rand = mt_rand();

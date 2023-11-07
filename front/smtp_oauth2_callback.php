@@ -35,13 +35,16 @@
 
 use Glpi\Mail\SMTP\OauthConfig;
 
+/** @var array $CFG_GLPI */
+global $CFG_GLPI;
+
 if (!array_key_exists('cookie_refresh', $_GET)) {
     // Session cookie will not be accessible when user will be redirected from provider website
     // if `session.cookie_samesite` configuration value is `strict`.
     // Redirecting on self using `http-equiv="refresh"` will get around this limitation.
     $url = htmlspecialchars(
         $_SERVER['REQUEST_URI']
-        . (str_contains($_SERVER['REQUEST_URI'], '?') ? '&' : '?')
+        . (strpos($_SERVER['REQUEST_URI'], '?') !== false ? '&' : '?')
         . 'cookie_refresh'
     );
 

@@ -40,6 +40,7 @@ use GLPIKey;
 use Group;
 use Group_User;
 use UserTitle;
+use Glpi\Toolbox\Sanitizer;
 
 /* Test for inc/authldap.class.php */
 
@@ -706,7 +707,7 @@ class AuthLDAP extends DbTestCase
             $limit
         );
 
-        $this->array($users)->hasSize(910);
+        $this->array($users)->hasSize(912);
         $this->array($results)->hasSize(0);
 
         $_SESSION['ldap_import']['interface'] = \AuthLDAP::SIMPLE_INTERFACE;
@@ -761,7 +762,7 @@ class AuthLDAP extends DbTestCase
             $limit
         );
 
-        $this->array($groups)->hasSize(910);
+        $this->array($groups)->hasSize(912);
 
        /** TODO: filter search... I do not know how to do. */
     }
@@ -823,7 +824,7 @@ class AuthLDAP extends DbTestCase
          ->variable['is_active']->isEqualTo(true)
          ->variable['auths_id']->isEqualTo($ldap->getID())
          ->variable['authtype']->isEqualTo(\Auth::LDAP)
-         ->string['user_dn']->isIdenticalTo('uid=ecuador0,ou=people,ou=ldap3,dc=glpi,dc=org');
+         ->string['user_dn']->isIdenticalTo('uid=ecuador0,ou=people,ou=R&#38;D,dc=glpi,dc=org');
 
         $this->integer((int)$user->fields['usertitles_id'])->isGreaterThan(0);
         $this->integer((int)$user->fields['usercategories_id'])->isGreaterThan(0);
@@ -843,11 +844,21 @@ class AuthLDAP extends DbTestCase
         $connection = $ldap->connect();
         $this->checkLdapConnection($connection);
 
+        // Invalid group
         $cn = \AuthLDAP::getGroupCNByDn($connection, 'ou=not,ou=exists,dc=glpi,dc=org');
         $this->boolean($cn)->isFalse();
 
-        $cn = \AuthLDAP::getGroupCNByDn($connection, 'cn=glpi2-group1,ou=groups,ou=usa,ou=ldap2, dc=glpi,dc=org');
+        // Valid group with no special chars
+        $cn = \AuthLDAP::getGroupCNByDn($connection, 'cn=glpi2-group1,ou=groups,ou=usa,ou=ldap2,dc=glpi,dc=org');
         $this->string($cn)->isIdenticalTo('glpi2-group1');
+
+        // OU with special `#` char protected by a `\`
+        $cn = \AuthLDAP::getGroupCNByDn($connection, 'cn=glpi2-group2,ou=groups,ou=\#1-test,ou=ldap2,dc=glpi,dc=org');
+        $this->string($cn)->isIdenticalTo('glpi2-group2');
+
+        // OU with special `#` char escaped to `\23`
+        $cn = \AuthLDAP::getGroupCNByDn($connection, 'cn=glpi2-group2,ou=groups,ou=\231-test,ou=ldap2,dc=glpi,dc=org');
+        $this->string($cn)->isIdenticalTo('glpi2-group2');
     }
 
     /**
@@ -872,30 +883,59 @@ class AuthLDAP extends DbTestCase
          ->hasKeys(['userpassword', 'uid', 'objectclass', 'sn']);
     }
 
+    protected function ldapGroupUserProvider(): iterable
+    {
+        yield [
+            'group_dn'            => 'cn=glpi2-group1,ou=groups,ou=usa,ou=ldap2,dc=glpi,dc=org',
+            'user_uid'            => 'remi',
+            'expected_group_dn'   => 'cn=glpi2-group1,ou=groups,ou=usa,ou=ldap2,dc=glpi,dc=org',
+            'expected_group_name' => 'glpi2-group1',
+        ];
+
+        // OU with special `#` char protected by a `\`
+        yield [
+            'group_dn'            => 'cn=glpi2-group2,ou=groups,ou=\#1-test,ou=ldap2,dc=glpi,dc=org',
+            'user_uid'            => 'specialchar1',
+            // openladap replaces `\#` by `\23` (23 is the ascii code for #)
+            'expected_group_dn'   => 'cn=glpi2-group2,ou=groups,ou=\231-test,ou=ldap2,dc=glpi,dc=org',
+            'expected_group_name' => 'glpi2-group2',
+        ];
+
+        // OU with special `#` char escaped to `\23`
+        yield [
+            'group_dn'            => 'cn=glpi2-group2,ou=groups,ou=\231-test,ou=ldap2,dc=glpi,dc=org',
+            'user_uid'            => 'specialchar2',
+            'expected_group_dn'   => 'cn=glpi2-group2,ou=groups,ou=\231-test,ou=ldap2,dc=glpi,dc=org',
+            'expected_group_name' => 'glpi2-group2',
+        ];
+    }
+
     /**
      * Test get group
      *
      * @extensions ldap
      *
+     * @dataProvider ldapGroupUserProvider
+     *
      * @return void
      */
-    public function testGetGroupByDn()
+    public function testGetGroupByDn(string $group_dn, string $user_uid, string $expected_group_dn, string $expected_group_name)
     {
         $ldap = $this->ldap;
 
         $group = \AuthLDAP::getGroupByDn(
             $ldap->connect(),
-            'cn=glpi2-group1,ou=groups,ou=usa,ou=ldap2, dc=glpi,dc=org'
+            $group_dn
         );
 
         $this->array($group)->isIdenticalTo([
             'cn'     => [
-                'count'   => 1,
-                0        => 'glpi2-group1',
+                'count' => 1,
+                0       => $expected_group_name,
             ],
             0        => 'cn',
             'count'  => 1,
-            'dn'     => 'cn=glpi2-group1,ou=groups,ou=usa,ou=ldap2,dc=glpi,dc=org'
+            'dn'     => $expected_group_dn
         ]);
     }
 
@@ -904,14 +944,17 @@ class AuthLDAP extends DbTestCase
      *
      * @extensions ldap
      *
+     * @dataProvider ldapGroupUserProvider
+     *
      * @return void
      */
-    public function testLdapImportGroup()
+    public function testLdapImportGroup(string $group_dn, string $user_uid, string $expected_group_dn, string $expected_group_name)
     {
         $ldap = $this->ldap;
 
+        // Valid group with no special chars
         $import = \AuthLDAP::ldapImportGroup(
-            'cn=glpi2-group1,ou=groups,ou=usa,ou=ldap2,dc=glpi,dc=org',
+            $group_dn,
             [
                 'authldaps_id' => $ldap->getID(),
                 'entities_id'  => 0,
@@ -922,14 +965,14 @@ class AuthLDAP extends DbTestCase
 
         $this->integer($import)->isGreaterThan(0);
 
-       //check group
+        //check group
         $group = new \Group();
         $this->boolean($group->getFromDB($import))->isTrue();
 
         $this->array($group->fields)
-         ->string['name']->isIdenticalTo('glpi2-group1')
-         ->string['completename']->isIdenticalTo('glpi2-group1')
-         ->string['ldap_group_dn']->isIdenticalTo('cn=glpi2-group1,ou=groups,ou=usa,ou=ldap2,dc=glpi,dc=org');
+            ->string['name']->isIdenticalTo($expected_group_name)
+            ->string['completename']->isIdenticalTo($expected_group_name)
+            ->string['ldap_group_dn']->isIdenticalTo($expected_group_dn);
     }
 
     /**
@@ -937,50 +980,53 @@ class AuthLDAP extends DbTestCase
      *
      * @extensions ldap
      *
+     * @dataProvider ldapGroupUserProvider
+     *
      * @return void
      */
-    public function testLdapImportUserGroup()
+    public function testLdapImportUserGroup(string $group_dn, string $user_uid, string $expected_group_dn, string $expected_group_name)
     {
         $ldap = $this->ldap;
 
-        $import = \AuthLDAP::ldapImportGroup(
-            'cn=glpi2-group1,ou=groups,ou=usa,ou=ldap2,dc=glpi,dc=org',
-            [
-                'authldaps_id' => $ldap->getID(),
-                'entities_id'  => 0,
-                'is_recursive' => true,
-                'type'         => 'groups'
-            ]
-        );
-
-        $this->integer($import)->isGreaterThan(0);
-
-       //check group
+        // Import group, unless it exists
         $group = new \Group();
-        $this->boolean($group->getFromDB($import))->isTrue();
+        if (!$group->getFromDBByCrit(['name' => $expected_group_name])) {
+            $import = \AuthLDAP::ldapImportGroup(
+                $group_dn,
+                [
+                    'authldaps_id' => $ldap->getID(),
+                    'entities_id'  => 0,
+                    'is_recursive' => true,
+                    'type'         => 'groups'
+                ]
+            );
+
+            $this->integer($import)->isGreaterThan(0);
+            $this->boolean($group->getFromDB($import))->isTrue();
+        }
 
         $import = \AuthLDAP::ldapImportUserByServerId(
             [
                 'method' => \AuthLDAP::IDENTIFIER_LOGIN,
-                'value'  => 'remi'
+                'value'  => $user_uid
             ],
             \AuthLDAP::ACTION_IMPORT,
             $ldap->getID(),
             true
         );
         $this->array($import)
-         ->hasSize(2)
-         ->integer['action']->isIdenticalTo(\AuthLDAP::USER_IMPORTED);
+            ->hasSize(2)
+            ->integer['action']->isIdenticalTo(\AuthLDAP::USER_IMPORTED);
         $this->integer((int)$import['id'])->isGreaterThan(0);
 
-       //check created user
+        //check created user
         $user = new \User();
         $this->boolean($user->getFromDB($import['id']))->isTrue();
 
         $usergroups = \Group_User::getUserGroups($user->getID());
         $this->array($usergroups[0])
-         ->variable['id']->isEqualTo($group->getID())
-         ->string['name']->isIdenticalTo($group->fields['name']);
+            ->variable['id']->isEqualTo($group->getID())
+            ->string['name']->isIdenticalTo($expected_group_name);
     }
 
 
@@ -1016,13 +1062,13 @@ class AuthLDAP extends DbTestCase
         $this->array($user->fields)
          ->string['name']->isIdenticalTo('ecuador0')
          ->string['phone']->isIdenticalTo('034596780')
-         ->string['user_dn']->isIdenticalTo('uid=ecuador0,ou=people,ou=ldap3,dc=glpi,dc=org');
+         ->string['user_dn']->isIdenticalTo('uid=ecuador0,ou=people,ou=R&#38;D,dc=glpi,dc=org');
 
        // update the user in ldap (change phone number)
         $this->boolean(
             ldap_modify(
                 $ldap->connect(),
-                'uid=ecuador0,ou=people,ou=ldap3,dc=glpi,dc=org',
+                'uid=ecuador0,ou=people,ou=R&D,dc=glpi,dc=org',
                 ['telephoneNumber' => '+33101010101']
             )
         )->isTrue();
@@ -1033,7 +1079,7 @@ class AuthLDAP extends DbTestCase
         $this->boolean(
             ldap_modify(
                 $ldap->connect(),
-                'uid=ecuador0,ou=people,ou=ldap3,dc=glpi,dc=org',
+                'uid=ecuador0,ou=people,ou=R&D,dc=glpi,dc=org',
                 ['telephoneNumber' => '034596780']
             )
         )->isTrue();
@@ -1048,7 +1094,7 @@ class AuthLDAP extends DbTestCase
         $this->array($user->fields)
          ->string['name']->isIdenticalTo('ecuador0')
          ->string['phone']->isIdenticalTo('+33101010101')
-         ->string['user_dn']->isIdenticalTo('uid=ecuador0,ou=people,ou=ldap3,dc=glpi,dc=org');
+         ->string['user_dn']->isIdenticalTo('uid=ecuador0,ou=people,ou=R&#38;D,dc=glpi,dc=org');
 
        // update sync field of user
         $this->boolean(
@@ -1064,7 +1110,7 @@ class AuthLDAP extends DbTestCase
         $this->boolean(
             ldap_mod_add(
                 $ldap->connect(),
-                'uid=ecuador0,ou=people,ou=ldap3,dc=glpi,dc=org',
+                'uid=ecuador0,ou=people,ou=R&D,dc=glpi,dc=org',
                 ['employeeNumber' => '42']
             )
         )->isTrue();
@@ -1083,7 +1129,7 @@ class AuthLDAP extends DbTestCase
         $this->boolean(
             ldap_rename(
                 $ldap->connect(),
-                'uid=ecuador0,ou=people,ou=ldap3,dc=glpi,dc=org',
+                'uid=ecuador0,ou=people,ou=R&D,dc=glpi,dc=org',
                 'uid=testecuador',
                 '',
                 true
@@ -1096,7 +1142,7 @@ class AuthLDAP extends DbTestCase
         $this->boolean(
             ldap_rename(
                 $ldap->connect(),
-                'uid=testecuador,ou=people,ou=ldap3,dc=glpi,dc=org',
+                'uid=testecuador,ou=people,ou=R&D,dc=glpi,dc=org',
                 'uid=ecuador0',
                 '',
                 true
@@ -1106,7 +1152,7 @@ class AuthLDAP extends DbTestCase
         $this->boolean(
             ldap_mod_del(
                 $ldap->connect(),
-                'uid=ecuador0,ou=people,ou=ldap3,dc=glpi,dc=org',
+                'uid=ecuador0,ou=people,ou=R&D,dc=glpi,dc=org',
                 ['employeeNumber' => 42]
             )
         )->isTrue();
@@ -1125,7 +1171,7 @@ class AuthLDAP extends DbTestCase
         $this->boolean(
             ldap_mod_add(
                 $ldap->connect(),
-                'uid=ecuador0,ou=people,ou=ldap3,dc=glpi,dc=org',
+                'uid=ecuador0,ou=people,ou=R&D,dc=glpi,dc=org',
                 ['employeeNumber' => '42']
             )
         )->isTrue();
@@ -1143,7 +1189,7 @@ class AuthLDAP extends DbTestCase
         $this->boolean(
             ldap_mod_replace(
                 $ldap->connect(),
-                'uid=ecuador0,ou=people,ou=ldap3,dc=glpi,dc=org',
+                'uid=ecuador0,ou=people,ou=R&D,dc=glpi,dc=org',
                 ['employeeNumber' => '43']
             )
         )->isTrue();
@@ -1176,7 +1222,7 @@ class AuthLDAP extends DbTestCase
         $this->boolean(
             ldap_mod_del(
                 $ldap->connect(),
-                'uid=ecuador0,ou=people,ou=ldap3,dc=glpi,dc=org',
+                'uid=ecuador0,ou=people,ou=R&D,dc=glpi,dc=org',
                 ['employeeNumber' => 43]
             )
         )->isTrue();
@@ -1205,7 +1251,7 @@ class AuthLDAP extends DbTestCase
         $user->getFromDBbyName('brazil6');
         $this->array($user->fields)
          ->string['name']->isIdenticalTo('brazil6')
-         ->string['user_dn']->isIdenticalTo('uid=brazil6,ou=people,ou=ldap3,dc=glpi,dc=org');
+         ->string['user_dn']->isIdenticalTo('uid=brazil6,ou=people,ou=R&#38;D,dc=glpi,dc=org');
         $this->boolean($auth->user_present)->isFalse();
         $this->boolean($auth->user_dn)->isFalse();
         $this->checkLdapConnection($auth->ldap_connection);
@@ -1240,19 +1286,19 @@ class AuthLDAP extends DbTestCase
         $this->boolean($user->getFromDB($import['id']))->isTrue();
         $this->array($user->fields)
          ->string['name']->isIdenticalTo('brazil7')
-         ->string['user_dn']->isIdenticalTo('uid=brazil7,ou=people,ou=ldap3,dc=glpi,dc=org');
+         ->string['user_dn']->isIdenticalTo('uid=brazil7,ou=people,ou=R&#38;D,dc=glpi,dc=org');
 
         $auth = $this->login('brazil7', 'password', false, true);
 
         $this->boolean($auth->user_present)->isTrue();
-        $this->string($auth->user_dn)->isIdenticalTo($user->fields['user_dn']);
+        $this->string($auth->user_dn)->isIdenticalTo(Sanitizer::unsanitize($user->fields['user_dn']));
         $this->checkLdapConnection($auth->ldap_connection);
 
        //change user login, and try again. Existing user should be updated.
         $this->boolean(
             ldap_rename(
                 $ldap->connect(),
-                'uid=brazil7,ou=people,ou=ldap3,dc=glpi,dc=org',
+                'uid=brazil7,ou=people,ou=R&D,dc=glpi,dc=org',
                 'uid=brazil7test',
                 '',
                 true
@@ -1266,7 +1312,7 @@ class AuthLDAP extends DbTestCase
         $this->boolean(
             ldap_rename(
                 $ldap->connect(),
-                'uid=brazil7test,ou=people,ou=ldap3,dc=glpi,dc=org',
+                'uid=brazil7test,ou=people,ou=R&D,dc=glpi,dc=org',
                 'uid=brazil7',
                 '',
                 true
@@ -1276,14 +1322,14 @@ class AuthLDAP extends DbTestCase
         $this->boolean($user->getFromDB($user->getID()))->isTrue();
         $this->array($user->fields)
          ->string['name']->isIdenticalTo('brazil7test')
-         ->string['user_dn']->isIdenticalTo('uid=brazil7test,ou=people,ou=ldap3,dc=glpi,dc=org');
+         ->string['user_dn']->isIdenticalTo('uid=brazil7test,ou=people,ou=R&#38;D,dc=glpi,dc=org');
 
         $this->boolean($auth->user_present)->isTrue();
         $this->checkLdapConnection($auth->ldap_connection);
 
        //ensure duplicated DN on different authldaps_id does not prevent login
         $this->boolean(
-            $user->getFromDBByCrit(['user_dn' => 'uid=brazil6,ou=people,ou=ldap3,dc=glpi,dc=org'])
+            $user->getFromDBByCrit(['user_dn' => 'uid=brazil6,ou=people,ou=R&#38;D,dc=glpi,dc=org'])
         )->isTrue();
 
         $dup = $user->fields;
@@ -1301,7 +1347,7 @@ class AuthLDAP extends DbTestCase
         $this->array($auth->user->fields)
          ->integer['auths_id']->isIdenticalTo($aid)
          ->string['name']->isIdenticalTo('brazil6')
-         ->string['user_dn']->isIdenticalTo('uid=brazil6,ou=people,ou=ldap3,dc=glpi,dc=org');
+         ->string['user_dn']->isIdenticalTo('uid=brazil6,ou=people,ou=R&#38;D,dc=glpi,dc=org');
 
         global $DB;
         $DB->updateOrDie(
@@ -1383,7 +1429,7 @@ class AuthLDAP extends DbTestCase
             $limit
         );
 
-        $this->array($users)->hasSize(910);
+        $this->array($users)->hasSize(912);
         $this->array($results)->hasSize(0);
 
         $_SESSION['ldap_import']['interface'] = \AuthLDAP::SIMPLE_INTERFACE;
@@ -1449,7 +1495,7 @@ class AuthLDAP extends DbTestCase
         $this->boolean(
             ldap_add(
                 $ldap->connect(),
-                'uid=toremovetest,ou=people,ou=ldap3,dc=glpi,dc=org',
+                'uid=toremovetest,ou=people,ou=R&D,dc=glpi,dc=org',
                 [
                     'uid'          => 'toremovetest',
                     'sn'           => 'A SN',
@@ -1494,10 +1540,18 @@ class AuthLDAP extends DbTestCase
         )->isTrue();
         $ldap::$conn_cache = [];
 
-        $synchro = $ldap->forceOneUserSynchronization($user);
-        $this->boolean($synchro)->isFalse();
+        $this->when(
+            function () use ($ldap, $user) {
+                $synchro = $ldap->forceOneUserSynchronization($user);
+                $this->boolean($synchro)->isFalse();
+            }
+        )
+            ->error()
+                ->withType(E_USER_WARNING)
+                ->withMessage("Unable to bind to LDAP server `server-does-not-exists.org:1234` with RDN `cn=Manager,dc=glpi,dc=org`\nerror: Can't contact LDAP server (-1)")
+            ->exists();
 
-       //reset directory configuration
+        //reset directory configuration
         $this->boolean(
             $ldap->update([
                 'id'     => $ldap->getID(),
@@ -1515,7 +1569,7 @@ class AuthLDAP extends DbTestCase
         $this->boolean(
             ldap_delete(
                 $ldap->connect(),
-                'uid=toremovetest,ou=people,ou=ldap3,dc=glpi,dc=org'
+                'uid=toremovetest,ou=people,ou=R&D,dc=glpi,dc=org'
             )
         )->isTrue();
 
@@ -1548,7 +1602,7 @@ class AuthLDAP extends DbTestCase
         $this->boolean(
             ldap_add(
                 $ldap->connect(),
-                'uid=torestoretest,ou=people,ou=ldap3,dc=glpi,dc=org',
+                'uid=torestoretest,ou=people,ou=R&D,dc=glpi,dc=org',
                 [
                     'uid'          => 'torestoretest',
                     'sn'           => 'A SN',
@@ -1587,7 +1641,7 @@ class AuthLDAP extends DbTestCase
         $this->boolean(
             ldap_delete(
                 $ldap->connect(),
-                'uid=torestoretest,ou=people,ou=ldap3,dc=glpi,dc=org'
+                'uid=torestoretest,ou=people,ou=R&D,dc=glpi,dc=org'
             )
         )->isTrue();
 
@@ -1610,7 +1664,7 @@ class AuthLDAP extends DbTestCase
         $this->boolean(
             ldap_add(
                 $ldap->connect(),
-                'uid=torestoretest,ou=people,ou=ldap3,dc=glpi,dc=org',
+                'uid=torestoretest,ou=people,ou=R&D,dc=glpi,dc=org',
                 [
                     'uid'          => 'torestoretest',
                     'sn'           => 'A SN',
@@ -1677,6 +1731,9 @@ class AuthLDAP extends DbTestCase
         ]);
     }
 
+    /**
+     * @extensions ldap
+     */
     public function testSyncLongDN()
     {
         $ldap = $this->ldap;
@@ -1685,7 +1742,7 @@ class AuthLDAP extends DbTestCase
         $this->boolean(
             ldap_add(
                 $ldap_con,
-                'ou=andyetanotheronetogetaveryhugednidentifier,ou=people,ou=ldap3,dc=glpi,dc=org',
+                'ou=andyetanotheronetogetaveryhugednidentifier,ou=people,ou=R&D,dc=glpi,dc=org',
                 [
                     'ou'          => 'andyetanotheronetogetaveryhugednidentifier',
                     'objectClass'  => [
@@ -1698,7 +1755,7 @@ class AuthLDAP extends DbTestCase
         $this->boolean(
             ldap_add(
                 $ldap_con,
-                'ou=andyetanotherlongstring,ou=andyetanotheronetogetaveryhugednidentifier,ou=people,ou=ldap3,dc=glpi,dc=org',
+                'ou=andyetanotherlongstring,ou=andyetanotheronetogetaveryhugednidentifier,ou=people,ou=R&D,dc=glpi,dc=org',
                 [
                     'ou'          => 'andyetanotherlongstring',
                     'objectClass'  => [
@@ -1711,7 +1768,7 @@ class AuthLDAP extends DbTestCase
         $this->boolean(
             ldap_add(
                 $ldap_con,
-                'ou=anotherlongstringtocheckforsynchronization,ou=andyetanotherlongstring,ou=andyetanotheronetogetaveryhugednidentifier,ou=people,ou=ldap3,dc=glpi,dc=org',
+                'ou=anotherlongstringtocheckforsynchronization,ou=andyetanotherlongstring,ou=andyetanotheronetogetaveryhugednidentifier,ou=people,ou=R&D,dc=glpi,dc=org',
                 [
                     'ou'          => 'anotherlongstringtocheckforsynchronization',
                     'objectClass'  => [
@@ -1724,7 +1781,7 @@ class AuthLDAP extends DbTestCase
         $this->boolean(
             ldap_add(
                 $ldap_con,
-                'ou=averylongstring,ou=anotherlongstringtocheckforsynchronization,ou=andyetanotherlongstring,ou=andyetanotheronetogetaveryhugednidentifier,ou=people,ou=ldap3,dc=glpi,dc=org',
+                'ou=averylongstring,ou=anotherlongstringtocheckforsynchronization,ou=andyetanotherlongstring,ou=andyetanotheronetogetaveryhugednidentifier,ou=people,ou=R&D,dc=glpi,dc=org',
                 [
                     'ou'          => 'averylongstring',
                     'objectClass'  => [
@@ -1738,7 +1795,7 @@ class AuthLDAP extends DbTestCase
         $this->boolean(
             ldap_add(
                 $ldap_con,
-                'uid=verylongdn,ou=averylongstring,ou=anotherlongstringtocheckforsynchronization,ou=andyetanotherlongstring,ou=andyetanotheronetogetaveryhugednidentifier,ou=people,ou=ldap3,dc=glpi,dc=org',
+                'uid=verylongdn,ou=averylongstring,ou=anotherlongstringtocheckforsynchronization,ou=andyetanotherlongstring,ou=andyetanotheronetogetaveryhugednidentifier,ou=people,ou=R&D,dc=glpi,dc=org',
                 [
                     'uid'          => 'verylongdn',
                     'sn'           => 'A SN',
@@ -1772,12 +1829,12 @@ class AuthLDAP extends DbTestCase
 
         $this->array($user->fields)
          ->string['name']->isIdenticalTo('verylongdn')
-         ->string['user_dn']->isIdenticalTo('uid=verylongdn,ou=averylongstring,ou=anotherlongstringtocheckforsynchronization,ou=andyetanotherlongstring,ou=andyetanotheronetogetaveryhugednidentifier,ou=people,ou=ldap3,dc=glpi,dc=org');
+         ->string['user_dn']->isIdenticalTo('uid=verylongdn,ou=averylongstring,ou=anotherlongstringtocheckforsynchronization,ou=andyetanotherlongstring,ou=andyetanotheronetogetaveryhugednidentifier,ou=people,ou=R&#38;D,dc=glpi,dc=org');
 
         $this->boolean(
             ldap_modify(
                 $ldap->connect(),
-                'uid=verylongdn,ou=averylongstring,ou=anotherlongstringtocheckforsynchronization,ou=andyetanotherlongstring,ou=andyetanotheronetogetaveryhugednidentifier,ou=people,ou=ldap3,dc=glpi,dc=org',
+                'uid=verylongdn,ou=averylongstring,ou=anotherlongstringtocheckforsynchronization,ou=andyetanotherlongstring,ou=andyetanotheronetogetaveryhugednidentifier,ou=people,ou=R&D,dc=glpi,dc=org',
                 ['telephoneNumber' => '+33102020202']
             )
         )->isTrue();
@@ -1792,17 +1849,20 @@ class AuthLDAP extends DbTestCase
         $this->array($user->fields)
          ->string['name']->isIdenticalTo('verylongdn')
          ->string['phone']->isIdenticalTo('+33102020202')
-         ->string['user_dn']->isIdenticalTo('uid=verylongdn,ou=averylongstring,ou=anotherlongstringtocheckforsynchronization,ou=andyetanotherlongstring,ou=andyetanotheronetogetaveryhugednidentifier,ou=people,ou=ldap3,dc=glpi,dc=org');
+         ->string['user_dn']->isIdenticalTo('uid=verylongdn,ou=averylongstring,ou=anotherlongstringtocheckforsynchronization,ou=andyetanotherlongstring,ou=andyetanotheronetogetaveryhugednidentifier,ou=people,ou=R&#38;D,dc=glpi,dc=org');
 
        //drop test user
         $this->boolean(
             ldap_delete(
                 $ldap->connect(),
-                'uid=verylongdn,ou=averylongstring,ou=anotherlongstringtocheckforsynchronization,ou=andyetanotherlongstring,ou=andyetanotheronetogetaveryhugednidentifier,ou=people,ou=ldap3,dc=glpi,dc=org'
+                'uid=verylongdn,ou=averylongstring,ou=anotherlongstringtocheckforsynchronization,ou=andyetanotherlongstring,ou=andyetanotheronetogetaveryhugednidentifier,ou=people,ou=R&D,dc=glpi,dc=org'
             )
         )->isTrue();
     }
 
+    /**
+     * @extensions ldap
+     */
     public function testSyncLongDNiCyrillic()
     {
         $ldap = $this->ldap;
@@ -1812,7 +1872,7 @@ class AuthLDAP extends DbTestCase
         $this->boolean(
             ldap_add(
                 $ldap_con,
-                'OU=Управление с очень очень длинным названием даже сложно запомнить насколько оно длинное и еле влезает в экран№123,ou=ldap3,DC=glpi,DC=org',
+                'OU=Управление с очень очень длинным названием даже сложно запомнить насколько оно длинное и еле влезает в экран№123,ou=R&D,DC=glpi,DC=org',
                 [
                     'ou'          => 'Управление с очень очень длинным названием даже сложно запомнить насколько оно длинное и еле влезает в экран№123',
                     'objectClass'  => [
@@ -1825,7 +1885,7 @@ class AuthLDAP extends DbTestCase
         $this->boolean(
             ldap_add(
                 $ldap_con,
-                'OU=Отдел Тест,OU=Управление с очень очень длинным названием даже сложно запомнить насколько оно длинное и еле влезает в экран№123,ou=ldap3,DC=glpi,DC=org',
+                'OU=Отдел Тест,OU=Управление с очень очень длинным названием даже сложно запомнить насколько оно длинное и еле влезает в экран№123,ou=R&D,DC=glpi,DC=org',
                 [
                     'ou'          => 'Отдел Тест',
                     'objectClass'  => [
@@ -1839,7 +1899,7 @@ class AuthLDAP extends DbTestCase
         $this->boolean(
             ldap_add(
                 $ldap_con,
-                'uid=Тестов Тест Тестович,OU=Отдел Тест,OU=Управление с очень очень длинным названием даже сложно запомнить насколько оно длинное и еле влезает в экран№123,ou=ldap3,DC=glpi,DC=org',
+                'uid=Тестов Тест Тестович,OU=Отдел Тест,OU=Управление с очень очень длинным названием даже сложно запомнить насколько оно длинное и еле влезает в экран№123,ou=R&D,DC=glpi,DC=org',
                 [
                     'uid'          => 'Тестов Тест Тестович',
                     'sn'           => 'A SN',
@@ -1873,12 +1933,12 @@ class AuthLDAP extends DbTestCase
 
         $this->array($user->fields)
          ->string['name']->isIdenticalTo('Тестов Тест Тестович')
-         ->string['user_dn']->isIdenticalTo('uid=Тестов Тест Тестович,ou=Отдел Тест,ou=Управление с очень очень длинным названием даже сложно запомнить насколько оно длинное и еле влезает в экран№123,ou=ldap3,dc=glpi,dc=org');
+         ->string['user_dn']->isIdenticalTo('uid=Тестов Тест Тестович,ou=Отдел Тест,ou=Управление с очень очень длинным названием даже сложно запомнить насколько оно длинное и еле влезает в экран№123,ou=R&#38;D,dc=glpi,dc=org');
 
         $this->boolean(
             ldap_modify(
                 $ldap->connect(),
-                'uid=Тестов Тест Тестович,ou=Отдел Тест,ou=Управление с очень очень длинным названием даже сложно запомнить насколько оно длинное и еле влезает в экран№123,ou=ldap3,dc=glpi,dc=org',
+                'uid=Тестов Тест Тестович,ou=Отдел Тест,ou=Управление с очень очень длинным названием даже сложно запомнить насколько оно длинное и еле влезает в экран№123,ou=R&D,dc=glpi,dc=org',
                 ['telephoneNumber' => '+33103030303']
             )
         )->isTrue();
@@ -1893,13 +1953,13 @@ class AuthLDAP extends DbTestCase
         $this->array($user->fields)
          ->string['name']->isIdenticalTo('Тестов Тест Тестович')
          ->string['phone']->isIdenticalTo('+33103030303')
-         ->string['user_dn']->isIdenticalTo('uid=Тестов Тест Тестович,ou=Отдел Тест,ou=Управление с очень очень длинным названием даже сложно запомнить насколько оно длинное и еле влезает в экран№123,ou=ldap3,dc=glpi,dc=org');
+         ->string['user_dn']->isIdenticalTo('uid=Тестов Тест Тестович,ou=Отдел Тест,ou=Управление с очень очень длинным названием даже сложно запомнить насколько оно длинное и еле влезает в экран№123,ou=R&#38;D,dc=glpi,dc=org');
 
        //drop test user
         $this->boolean(
             ldap_delete(
                 $ldap->connect(),
-                'uid=Тестов Тест Тестович,OU=Отдел Тест,OU=Управление с очень очень длинным названием даже сложно запомнить насколько оно длинное и еле влезает в экран№123,ou=ldap3,DC=glpi,DC=org'
+                'uid=Тестов Тест Тестович,OU=Отдел Тест,OU=Управление с очень очень длинным названием даже сложно запомнить насколько оно длинное и еле влезает в экран№123,ou=R&D,DC=glpi,DC=org'
             )
         )->isTrue();
     }
@@ -1937,11 +1997,13 @@ class AuthLDAP extends DbTestCase
 
     /**
      * @dataProvider testSyncWithManagerProvider
+     *
+     * @extensions ldap
      */
     public function testSyncWithManager($manager_dn, array $manager_entry)
     {
        // Static conf
-        $base_dn = "ou=people,ou=ldap3,dc=glpi,dc=org";
+        $base_dn = "ou=people,ou=R&D,dc=glpi,dc=org";
         $user_full_dn = "uid=userwithmanager,$base_dn";
         $escaped_manager_dn = ldap_escape($manager_dn, "", LDAP_ESCAPE_DN);
         $manager_full_dn = "cn=$escaped_manager_dn,$base_dn";
@@ -2015,7 +2077,7 @@ class AuthLDAP extends DbTestCase
        // lowercase ("," -> \2c) but some ldap software store them in uppercase
         $this
          ->string(strtolower($manager->fields['user_dn']))
-         ->isIdenticalTo(strtolower($manager_full_dn));
+         ->isIdenticalTo(Sanitizer::encodeHtmlSpecialChars(strtolower($manager_full_dn)));
 
        // Check created user
         $user = new \User();
@@ -2024,7 +2086,7 @@ class AuthLDAP extends DbTestCase
         $this
          ->array($user->fields)
          ->string['name']->isIdenticalTo($user_entry['uid'])
-         ->string['user_dn']->isIdenticalTo("$user_full_dn")
+         ->string['user_dn']->isIdenticalTo(Sanitizer::encodeHtmlSpecialChars($user_full_dn))
          ->integer['users_id_supervisor']->isIdenticalTo($manager->fields['id']);
 
        // Drop both
@@ -2118,6 +2180,9 @@ class AuthLDAP extends DbTestCase
         $this->array($gus)->hasSize(1);
     }
 
+    /**
+     * @extensions ldap
+     */
     public function testLdapUnavailable()
     {
         //Import user that doesn't exist yet
@@ -2127,14 +2192,20 @@ class AuthLDAP extends DbTestCase
         $user->getFromDBbyName('brazil5');
         $this->array($user->fields)
             ->string['name']->isIdenticalTo('brazil5')
-            ->string['user_dn']->isIdenticalTo('uid=brazil5,ou=people,ou=ldap3,dc=glpi,dc=org');
+            ->string['user_dn']->isIdenticalTo('uid=brazil5,ou=people,ou=R&#38;D,dc=glpi,dc=org');
         $this->boolean($auth->user_present)->isFalse();
         $this->boolean($auth->user_dn)->isFalse();
         $this->checkLdapConnection($auth->ldap_connection);
 
-        // Get original LDAP server port
-        $original_port = $this->ldap->fields['port'];
-        // Update LDAP to have inaccessible server
+        // Add a second LDAP server that is accessible but where user will not be found.
+        $input = $this->ldap->fields;
+        unset($input['id']);
+        $input['rootdn_passwd'] = 'insecure'; // cannot reuse encrypted password from `$this->ldap->fields`
+        $input['basedn'] = 'dc=notglpi'; // use a non-matching base DN to ensure user cannot login on it
+        $ldap = new \AuthLDAP();
+        $this->integer($ldap->add($input))->isGreaterThan(0);
+
+        // Update first LDAP server to make it inaccessible.
         $this->boolean(
             $this->ldap->update([
                 'id'     => $this->ldap->getID(),
@@ -2142,20 +2213,93 @@ class AuthLDAP extends DbTestCase
             ])
         )->isTrue();
 
-        $auth = $this->login('brazil5', 'password', false, false);
-
-        // Restore original port
-        $this->boolean(
-            $this->ldap->update([
-                'id'     => $this->ldap->getID(),
-                'port'   => $original_port,
-            ])
-        )->isTrue();
+        $this->when(
+            function () {
+                $this->login('brazil5', 'password', false, false);
+            }
+        )
+            ->error()
+                ->withType(E_USER_WARNING)
+                ->withMessage("Unable to bind to LDAP server `openldap:1234` with RDN `cn=Manager,dc=glpi,dc=org`\nerror: Can't contact LDAP server (-1)")
+                ->exists();
 
         $user->getFromDBbyName('brazil5');
         // Verify trying to log in while LDAP unavailable does not disable user's GLPI account
         $this->integer($user->fields['is_active'])->isEqualTo(1);
         $this->integer($user->fields['is_deleted_ldap'])->isEqualTo(0);
+    }
+
+    /**
+     * @extensions ldap
+     */
+    public function testLdapDeletionOnLogin()
+    {
+        $connection = $this->ldap->connect();
+        $this->checkLdapConnection($connection);
+
+        // Add a new user in directory
+        $this->boolean(
+            ldap_add(
+                $connection,
+                'uid=logintest,ou=people,ou=R&D,dc=glpi,dc=org',
+                [
+                    'uid'          => 'logintest',
+                    'sn'           => 'A SN',
+                    'cn'           => 'A CN',
+                    'userpassword' => 'password',
+                    'objectClass'  => [
+                        'top',
+                        'inetOrgPerson'
+                    ]
+                ]
+            )
+        )->isTrue();
+
+        //Import user that doesn't exist yet
+        $auth = $this->login('logintest', 'password');
+
+        $user = new \User();
+        $user->getFromDBbyName('logintest');
+        $this->array($user->fields)
+            ->string['name']->isIdenticalTo('logintest')
+            ->string['user_dn']->isIdenticalTo('uid=logintest,ou=people,ou=R&#38;D,dc=glpi,dc=org');
+        $this->boolean($auth->user_present)->isFalse();
+        $this->boolean($auth->user_dn)->isFalse();
+        $this->checkLdapConnection($auth->ldap_connection);
+
+        // Add a second LDAP server that is accessible but where user will not be found.
+        $input = $this->ldap->fields;
+        unset($input['id']);
+        $input['rootdn_passwd'] = 'insecure'; // cannot reuse encrypted password from `$this->ldap->fields`
+        $input['basedn'] = 'dc=notglpi'; // use a non-matching base DN to ensure user cannot login on it
+        $ldap = new \AuthLDAP();
+        $this->integer($ldap->add($input))->isGreaterThan(0);
+
+        // Delete the user
+        $this->boolean(
+            ldap_delete(
+                $connection,
+                'uid=logintest,ou=people,ou=R&D,dc=glpi,dc=org'
+            )
+        )->isTrue();
+
+        $auth = new \Auth();
+        $this->boolean($auth->login('logintest', 'password'))->isFalse();
+
+        $user->getFromDBbyName('logintest');
+        $this->integer($user->fields['is_deleted_ldap'])->isEqualTo(1);
+    }
+
+    /**
+     * @extensions ldap
+     */
+    public function testLdapLoginWithWrongPassword()
+    {
+        $auth = new \Auth();
+        $this->boolean($auth->login('brazil5', 'wrong-password', false))->isFalse();
+
+        $user = new \User();
+        $this->boolean($user->getFromDBbyName('brazil5'))->isFalse();
     }
 
     private function checkLdapConnection($ldap_connection)
@@ -2202,5 +2346,440 @@ class AuthLDAP extends DbTestCase
             'name' => 'manager',
         ]);
         $this->array($uts)->hasSize(0);
+    }
+
+    protected function connectToServerErrorsProvider(): iterable
+    {
+        yield [
+            'host'     => 'invalidserver',
+            'port'     => '3890',
+            'login'    => '',
+            'password' => '',
+            'error'    => implode(
+                "\n",
+                [
+                    'Unable to bind to LDAP server `invalidserver:3890` anonymously',
+                    'error: Can\'t contact LDAP server (-1)',
+                ]
+            ),
+        ];
+
+        yield [
+            'host'     => 'openldap',
+            'port'     => '12345',
+            'login'    => '',
+            'password' => '',
+            'error'    => implode(
+                "\n",
+                [
+                    'Unable to bind to LDAP server `openldap:12345` anonymously',
+                    'error: Can\'t contact LDAP server (-1)',
+                ]
+            ),
+        ];
+
+        yield [
+            'host'     => 'openldap',
+            'port'     => '3890',
+            'login'    => 'notavalidrdn',
+            'password' => '',
+            'error'    => implode(
+                "\n",
+                [
+                    'Unable to bind to LDAP server `openldap:3890` with RDN `notavalidrdn`',
+                    'error: Invalid DN syntax (34)',
+                    'extended error: invalid DN',
+                    'err string: invalid DN',
+                ]
+            ),
+        ];
+
+        yield [
+            'host'     => 'openldap',
+            'port'     => '3890',
+            'login'    => 'cn=Manager,dc=glpi,dc=org',
+            'password' => 'wrongpassword',
+            'error'    => implode(
+                "\n",
+                [
+                    'Unable to bind to LDAP server `openldap:3890` with RDN `cn=Manager,dc=glpi,dc=org`',
+                    'error: Invalid credentials (49)',
+                ]
+            ),
+        ];
+    }
+
+    /**
+     * @dataProvider connectToServerErrorsProvider
+     *
+     * @extensions ldap
+     */
+    public function testConnectToServerErrorMessage(
+        string $host,
+        string $port,
+        string $login,
+        string $password,
+        string $error
+    ) {
+        $this->when(
+            function () use ($host, $port, $login, $password) {
+                \AuthLDAP::connectToServer($host, $port, $login, $password);
+            }
+        )->error()->withType(E_USER_WARNING)->withMessage($error)->exists();
+    }
+
+    /**
+     * @extensions ldap
+     */
+    public function testConnectToServerTlsError()
+    {
+        $error = implode(
+            "\n",
+            [
+                'Unable to start TLS connection to LDAP server `openldap:3890`',
+                'error: Protocol error (2)',
+                'extended error: unsupported extended operation',
+                'err string: unsupported extended operation',
+            ]
+        );
+
+        $this->when(
+            function () {
+                \AuthLDAP::connectToServer(
+                    'openldap',
+                    '3890',
+                    'cn=Manager,dc=glpi,dc=org',
+                    'insecure',
+                    true,
+                );
+            }
+        )->error()->withType(E_USER_WARNING)->withMessage($error)->exists();
+    }
+
+    /**
+     * @extensions ldap
+     */
+    public function testGetGroupCNByDnError()
+    {
+
+        $ldap = getItemByTypeName('AuthLDAP', '_local_ldap');
+        $connection = $ldap->connect();
+        $this->checkLdapConnection($connection);
+
+        $error = implode(
+            "\n",
+            [
+                'Unable to get LDAP group having DN `notavaliddn`',
+                'error: Invalid DN syntax (34)',
+                'extended error: invalid DN',
+                'err string: invalid DN',
+            ]
+        );
+
+        $this->when(
+            function () use ($connection) {
+                \AuthLDAP::getGroupCNByDn($connection, 'notavaliddn');
+            }
+        )->error()->withType(E_USER_WARNING)->withMessage($error)->exists();
+    }
+
+
+    protected function getObjectGroupByDnErrorsProvider(): iterable
+    {
+        // invalid base DN
+        yield [
+            'basedn' => 'notavalidbasedn',
+            'filter' => '(objectclass=inetOrgPerson)',
+            'error'  => implode(
+                "\n",
+                [
+                    'Unable to get LDAP object having DN `notavalidbasedn` with filter `(objectclass=inetOrgPerson)`',
+                    'error: Invalid DN syntax (34)',
+                    'extended error: invalid DN',
+                    'err string: invalid DN',
+                ]
+            ),
+        ];
+
+        // invalid filter
+        yield [
+            'basedn' => 'dc=glpi,dc=org',
+            'filter' => 'notavalidfilter',
+            'error'  => implode(
+                "\n",
+                [
+                    'Unable to get LDAP object having DN `dc=glpi,dc=org` with filter `notavalidfilter`',
+                    'error: Bad search filter (-7)',
+                ]
+            ),
+        ];
+    }
+
+    /**
+     * @dataProvider getObjectGroupByDnErrorsProvider
+     *
+     * @extensions ldap
+     */
+    public function testGetObjectGroupByDnError(
+        string $basedn,
+        string $filter,
+        string $error
+    ) {
+        $ldap = getItemByTypeName('AuthLDAP', '_local_ldap');
+        $connection = $ldap->connect();
+        $this->checkLdapConnection($connection);
+
+        $this->when(
+            function () use ($connection, $basedn, $filter) {
+                \AuthLDAP::getObjectByDn($connection, $filter, $basedn, ['dn']);
+            }
+        )->error()->withType(E_USER_WARNING)->withMessage($error)->exists();
+    }
+
+    protected function searchForUsersErrorsProvider(): iterable
+    {
+        // error messages should be identical whether pagesize support is enabled or not
+        $configs = [
+            [
+                'can_support_pagesize' => 0,
+            ],
+            [
+                'can_support_pagesize' => 1,
+                'pagesize'             => 100,
+            ],
+        ];
+        foreach ($configs as $config_fields) {
+            // invalid base DN
+            yield [
+                'config_fields' => $config_fields,
+                'basedn'        => 'notavalidbasedn',
+                'filter'        => '(objectclass=inetOrgPerson)',
+                'error'         => implode(
+                    "\n",
+                    [
+                        'LDAP search with base DN `notavalidbasedn` and filter `(objectclass=inetOrgPerson)` failed',
+                        'error: Invalid DN syntax (34)',
+                        'extended error: invalid DN',
+                        'err string: invalid DN',
+                    ]
+                ),
+            ];
+
+            // invalid filter
+            yield [
+                'config_fields' => $config_fields,
+                'basedn'        => 'dc=glpi,dc=org',
+                'filter'        => 'notavalidfilter',
+                'error'         => implode(
+                    "\n",
+                    [
+                        'LDAP search with base DN `dc=glpi,dc=org` and filter `notavalidfilter` failed',
+                        'error: Bad search filter (-7)',
+                    ]
+                ),
+            ];
+        }
+
+        // invalid pagesize
+        yield [
+            'config_fields' => [
+                'can_support_pagesize' => 1,
+                'pagesize'             => 0,
+            ],
+            'basedn'        => 'dc=glpi,dc=org',
+            'filter'        => '(objectclass=inetOrgPerson)',
+            'error'         => implode(
+                "\n",
+                [
+                    'LDAP search with base DN `dc=glpi,dc=org` and filter `(objectclass=inetOrgPerson)` failed',
+                    'error: Bad parameter to an ldap routine (-9)',
+                ]
+            ),
+        ];
+    }
+
+    /**
+     * @dataProvider searchForUsersErrorsProvider
+     *
+     * @extensions ldap
+     */
+    public function testSearchForUsersErrorMessages(
+        array $config_fields,
+        string $basedn,
+        string $filter,
+        string $error
+    ) {
+        $ldap = getItemByTypeName('AuthLDAP', '_local_ldap');
+        $ldap->fields = array_merge($ldap->fields, $config_fields);
+
+        $connection = $ldap->connect();
+        $this->checkLdapConnection($connection);
+
+        $this->when(
+            function () use ($ldap, $connection, $basedn, $filter) {
+                $limitexceeded = $user_infos = $ldap_users = null;
+
+                \AuthLDAP::searchForUsers(
+                    $connection,
+                    ['basedn' => $basedn],
+                    $filter,
+                    ['dn'],
+                    $limitexceeded,
+                    $user_infos,
+                    $ldap_users,
+                    $ldap
+                );
+            }
+        )->error()->withType(E_USER_WARNING)->withMessage($error)->exists();
+    }
+
+    protected function searchUserDnErrorsProvider(): iterable
+    {
+        // invalid base DN
+        yield [
+            'options' => [
+                'basedn'    => 'notavalidbasedn',
+            ],
+            'error'         => implode(
+                "\n",
+                [
+                    'LDAP search with base DN `notavalidbasedn` and filter `(uid=johndoe)` failed',
+                    'error: Invalid DN syntax (34)',
+                    'extended error: invalid DN',
+                    'err string: invalid DN',
+                ]
+            ),
+        ];
+
+        // invalid filter
+        yield [
+            'options' => [
+                'basedn'    => 'dc=glpi,dc=org',
+                'condition' => 'invalidfilter)',
+            ],
+            'error'         => implode(
+                "\n",
+                [
+                    'LDAP search with base DN `dc=glpi,dc=org` and filter `(& (uid=johndoe) invalidfilter))` failed',
+                    'error: Bad search filter (-7)',
+                ]
+            ),
+        ];
+    }
+
+    /**
+     * @dataProvider searchUserDnErrorsProvider
+     *
+     * @extensions ldap
+     */
+    public function testSearchUserDnErrorMessages(
+        array $options,
+        string $error
+    ) {
+        $ldap = getItemByTypeName('AuthLDAP', '_local_ldap');
+        $connection = $ldap->connect();
+        $this->checkLdapConnection($connection);
+
+        $this->when(
+            function () use ($connection, $options) {
+                \AuthLDAP::searchUserDn(
+                    $connection,
+                    $options + [
+                        'login_field'       => 'uid',
+                        'search_parameters' => ['fields' => ['login' => 'uid']],
+                        'user_params'       => ['value'  => 'johndoe'],
+                    ]
+                );
+            }
+        )->error()->withType(E_USER_WARNING)->withMessage($error)->exists();
+    }
+
+    protected function getGroupsFromLDAPErrorsProvider(): iterable
+    {
+        // error messages should be identical whether pagesize support is enabled or not
+        $configs = [
+            [
+                'can_support_pagesize' => 0,
+            ],
+            [
+                'can_support_pagesize' => 1,
+                'pagesize'             => 100,
+            ],
+        ];
+        foreach ($configs as $config_fields) {
+            // invalid base DN
+            yield [
+                'config_fields' => $config_fields + ['basedn' => 'notavalidbasedn'],
+                'filter'        => '(objectclass=inetOrgPerson)',
+                'error'         => implode(
+                    "\n",
+                    [
+                        'LDAP search with base DN `notavalidbasedn` and filter `(objectclass=inetOrgPerson)` failed',
+                        'error: Invalid DN syntax (34)',
+                        'extended error: invalid DN',
+                        'err string: invalid DN',
+                    ]
+                ),
+            ];
+
+            // invalid filter
+            yield [
+                'config_fields' => $config_fields,
+                'filter'        => 'notavalidfilter',
+                'error'         => implode(
+                    "\n",
+                    [
+                        'LDAP search with base DN `dc=glpi,dc=org` and filter `notavalidfilter` failed',
+                        'error: Bad search filter (-7)',
+                    ]
+                ),
+            ];
+        }
+
+        // invalid pagesize
+        yield [
+            'config_fields' => [
+                'can_support_pagesize' => 1,
+                'pagesize'             => 0,
+            ],
+            'filter'        => '(objectclass=groupOfNames)',
+            'error'         => implode(
+                "\n",
+                [
+                    'LDAP search with base DN `dc=glpi,dc=org` and filter `(objectclass=groupOfNames)` failed',
+                    'error: Bad parameter to an ldap routine (-9)',
+                ]
+            ),
+        ];
+    }
+
+    /**
+     * @dataProvider getGroupsFromLDAPErrorsProvider
+     *
+     * @extensions ldap
+     */
+    public function testGetGroupsFromLDAPErrors(
+        array $config_fields,
+        string $filter,
+        string $error
+    ) {
+        $ldap = getItemByTypeName('AuthLDAP', '_local_ldap');
+        $ldap->fields = array_merge($ldap->fields, $config_fields);
+
+        $connection = $ldap->connect();
+        $this->checkLdapConnection($connection);
+
+        $this->when(
+            function () use ($ldap, $connection, $filter) {
+                $limitexceeded = null;
+
+                \AuthLDAP::getGroupsFromLDAP(
+                    $connection,
+                    $ldap,
+                    $filter,
+                    $limitexceeded
+                );
+            }
+        )->error()->withType(E_USER_WARNING)->withMessage($error)->exists();
     }
 }

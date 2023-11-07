@@ -58,7 +58,7 @@ class OperatingSystem extends InventoryAsset
             'service_pack'   => 'operatingsystemservicepacks_id',
             'arch'           => 'operatingsystemarchitectures_id',
             'kernel_name'    => 'operatingsystemkernels_id',
-            'kernel_version' => 'operatingsystemkernelversions_id'
+            'kernel_version' => 'operatingsystemkernelversions_id',
         ];
 
         $val = (object)$this->data;
@@ -76,6 +76,14 @@ class OperatingSystem extends InventoryAsset
             if (property_exists($this->extra_data['hardware'], 'winprodkey')) {
                 $val->license_number = $this->extra_data['hardware']->winprodkey;
             }
+
+            if (property_exists($this->extra_data['hardware'], 'wincompany')) {
+                $val->company = $this->extra_data['hardware']->wincompany;
+            }
+
+            if (property_exists($this->extra_data['hardware'], 'winowner')) {
+                $val->owner = $this->extra_data['hardware']->winowner;
+            }
         }
 
         if (property_exists($val, 'full_name')) {
@@ -87,11 +95,26 @@ class OperatingSystem extends InventoryAsset
         }
 
         $mapping = [
-            'operatingsystems_id'               => RuleDictionnaryOperatingSystemCollection::class,
-            'operatingsystemversions_id'        => RuleDictionnaryOperatingSystemVersionCollection::class,
-            'operatingsystemservicepacks_id'    => RuleDictionnaryOperatingSystemServicePackCollection::class,
-            'operatingsystemarchitectures_id'   => RuleDictionnaryOperatingSystemArchitectureCollection::class,
-            'operatingsystemeditions_id'        => RuleDictionnaryOperatingSystemEditionCollection::class
+            'operatingsystems_id'               => [
+                "collection_class" => RuleDictionnaryOperatingSystemCollection::class,
+                "main_value" => $val->operatingsystems_id ?? ''
+            ],
+            'operatingsystemversions_id'        => [
+                "collection_class" => RuleDictionnaryOperatingSystemVersionCollection::class,
+                "main_value" => $val->operatingsystemversions_id ?? ''
+            ],
+            'operatingsystemservicepacks_id'    => [
+                "collection_class" => RuleDictionnaryOperatingSystemServicePackCollection::class,
+                "main_value" => $val->operatingsystemservicepacks_id ?? ''
+            ],
+            'operatingsystemarchitectures_id'   => [
+                "collection_class" => RuleDictionnaryOperatingSystemArchitectureCollection::class ,
+                "main_value" => $val->operatingsystemarchitectures_id ?? ''
+            ],
+            'operatingsystemeditions_id'        => [
+                "collection_class" => RuleDictionnaryOperatingSystemEditionCollection::class,
+                "main_value" => $val->operatingsystemeditions_id ?? ''
+            ],
         ];
 
         $rule_input = [
@@ -102,8 +125,9 @@ class OperatingSystem extends InventoryAsset
             'os_edition'        => $val->operatingsystemeditions_id ?? '',
         ];
 
-        foreach ($mapping as $key => $rule_class) {
-            $rulecollection = new $rule_class();
+        foreach ($mapping as $key => $value) {
+            $rulecollection = new $value['collection_class']();
+            $rule_input['name'] = $value['main_value'];
             $res_rule = $rulecollection->processAllRules($rule_input);
             if (isset($res_rule['name'])) {
                 $val->{$key} = $res_rule['name'];
@@ -120,6 +144,7 @@ class OperatingSystem extends InventoryAsset
 
     public function handle()
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $ios = new Item_OperatingSystem();
@@ -156,7 +181,7 @@ class OperatingSystem extends InventoryAsset
 
         $ioskey = 'operatingsystems_id' . $val->operatingsystems_id;
         $this->known_links[$ioskey] = $ios->fields['id'];
-        $this->operatingsystems_id = $ios->fields['id'];
+        $this->operatingsystems_id =  $input_os['operatingsystems_id'];
 
         //cleanup
         if (!$this->main_asset || !$this->main_asset->isPartial()) {

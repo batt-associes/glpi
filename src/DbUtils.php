@@ -188,6 +188,7 @@ final class DbUtils
      */
     public function getTableForItemType($itemtype)
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
        // Force singular for itemtype : States case
@@ -237,6 +238,7 @@ final class DbUtils
      */
     public function getItemTypeForTable($table)
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         if (isset($CFG_GLPI['glpiitemtypetables'][$table])) {
@@ -340,6 +342,7 @@ final class DbUtils
      */
     public function fixItemtypeCase(string $itemtype, $root_dir = GLPI_ROOT)
     {
+        /** @var \Psr\SimpleCache\CacheInterface $GLPI_CACHE */
         global $GLPI_CACHE;
 
         // If a class exists for this itemtype, just return the declared class name.
@@ -497,6 +500,7 @@ final class DbUtils
      */
     public function countElementsInTable($table, $condition = [])
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         if (!is_array($table)) {
@@ -604,6 +608,7 @@ final class DbUtils
      */
     public function getAllDataFromTable($table, $criteria = [], $usecache = false, $order = '')
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         static $cache = [];
@@ -648,6 +653,7 @@ final class DbUtils
      */
     public function isIndex($table, $field)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         if (!$DB->tableExists($table)) {
@@ -655,7 +661,7 @@ final class DbUtils
             return false;
         }
 
-        $result = $DB->query("SHOW INDEX FROM `$table`");
+        $result = $DB->doQuery("SHOW INDEX FROM `$table`");
 
         if ($result && $DB->numrows($result)) {
             while ($data = $DB->fetchAssoc($result)) {
@@ -677,6 +683,7 @@ final class DbUtils
      */
     public function isForeignKeyContraint($table, $keyname)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $query = [
@@ -718,6 +725,7 @@ final class DbUtils
         $is_recursive = false,
         $complete_request = false
     ) {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $query = $separator . " ( ";
@@ -905,6 +913,10 @@ final class DbUtils
      */
     public function getSonsOf($table, $IDf)
     {
+        /**
+         * @var \DBmysql $DB
+         * @var \Psr\SimpleCache\CacheInterface $GLPI_CACHE
+         */
         global $DB, $GLPI_CACHE;
 
         $ckey = 'sons_cache_' . $table . '_' . $IDf;
@@ -931,7 +943,7 @@ final class DbUtils
                 $db_sons = $iterator->current()['sons_cache'];
                 $db_sons = $db_sons !== null ? trim($db_sons) : null;
                 if (!empty($db_sons)) {
-                    $sons = $this->importArrayFromDB($db_sons, true);
+                    $sons = $this->importArrayFromDB($db_sons);
                 }
             }
         }
@@ -1013,6 +1025,10 @@ final class DbUtils
      */
     public function getAncestorsOf($table, $items_id)
     {
+        /**
+         * @var \DBmysql $DB
+         * @var \Psr\SimpleCache\CacheInterface $GLPI_CACHE
+         */
         global $DB, $GLPI_CACHE;
 
         if ($items_id === null) {
@@ -1054,7 +1070,7 @@ final class DbUtils
 
                   // Return datas from cache in DB
                     if (!empty($rancestors)) {
-                        $ancestors = array_replace($ancestors, $this->importArrayFromDB($rancestors, true));
+                        $ancestors = array_replace($ancestors, $this->importArrayFromDB($rancestors));
                     } else {
                         $loc_id_found = [];
                      // Recursive solution for table with-cache
@@ -1151,6 +1167,7 @@ final class DbUtils
      */
     public function getTreeLeafValueName($table, $ID, $withcomment = false, $translate = true)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $name    = "";
@@ -1253,6 +1270,7 @@ final class DbUtils
      */
     public function getTreeValueCompleteName($table, $ID, $withcomment = false, $translate = true, $tooltip = true, string $default = '&nbsp;')
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $name    = "";
@@ -1404,6 +1422,7 @@ final class DbUtils
      */
     public function getTreeValueName($table, $ID, $wholename = "", $level = 0)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $parentIDfield = $this->getForeignKeyFieldForTable($table);
@@ -1442,6 +1461,7 @@ final class DbUtils
      */
     public function getTreeForItem($table, $IDf)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $parentIDfield = $this->getForeignKeyFieldForTable($table);
@@ -1553,6 +1573,7 @@ final class DbUtils
      **/
     public function regenerateTreeCompleteName($table)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $iterator = $DB->request([
@@ -1580,9 +1601,9 @@ final class DbUtils
      * Format a user name
      *
      * @param integer $ID           ID of the user.
-     * @param string  $login        login of the user
-     * @param string  $realname     realname of the user
-     * @param string  $firstname    firstname of the user
+     * @param string|null  $login        login of the user
+     * @param string|null  $realname     realname of the user
+     * @param string|null  $firstname    firstname of the user
      * @param integer $link         include link (only if $link==1) (default =0)
      * @param integer $cut          limit string length (0 = no limit) (default =0)
      * @param boolean $force_config force order and id_visible to use common config (false by default)
@@ -1591,6 +1612,7 @@ final class DbUtils
      */
     public function formatUserName($ID, $login, $realname, $firstname, $link = 1, $cut = 0, $force_config = false)
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $before = "";
@@ -1606,10 +1628,10 @@ final class DbUtils
             $id_visible = $_SESSION["glpiis_ids_visible"];
         }
 
-        if ($realname !== null && strlen($realname) > 0) {
+        if (strlen($realname ?? '') > 0) {
             $formatted = $realname;
 
-            if (strlen($firstname) > 0) {
+            if (strlen($firstname ?? '') > 0) {
                 if ($order == User::FIRSTNAME_BEFORE) {
                     $formatted = $firstname . " " . $formatted;
                 } else {
@@ -1624,12 +1646,12 @@ final class DbUtils
                 $formatted = Toolbox::substr($formatted, 0, $cut) . " ...";
             }
         } else {
-            $formatted = $login;
+            $formatted = $login ?? '';
         }
 
         if (
             $ID > 0
-            && ((strlen($formatted ?? '') == 0) || $id_visible)
+            && ((strlen($formatted) == 0) || $id_visible)
         ) {
             $formatted = sprintf(__('%1$s (%2$s)'), $formatted, $ID);
         }
@@ -1660,6 +1682,7 @@ final class DbUtils
      */
     public function getUserName($ID, $link = 0, $disable_anon = false)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $user = "";
@@ -1761,7 +1784,11 @@ final class DbUtils
      */
     public function autoName($objectName, $field, $isTemplate, $itemtype, $entities_id = -1)
     {
-        global $DB, $CFG_GLPI;
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
+        global $CFG_GLPI, $DB;
 
         if (!$isTemplate) {
             return $objectName;
@@ -1926,6 +1953,7 @@ final class DbUtils
      */
     public function closeDBConnections()
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
        // Case of not init $DB object
@@ -1945,6 +1973,7 @@ final class DbUtils
      */
     public function getDateCriteria($field, $begin, $end)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $date_pattern = '/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2})?$/'; // `YYYY-mm-dd` optionaly followed by ` HH:ii:ss`

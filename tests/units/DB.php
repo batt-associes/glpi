@@ -144,6 +144,13 @@ class DB extends \GLPITestCase
                     'other'  => new \QueryParam()
                 ],
                 'INSERT INTO `table` (`field`, `other`) VALUES (?, ?)'
+            ], [
+                'table', new \QuerySubQuery([
+                    'SELECT' => ['id', 'name'],
+                    'FROM' => 'other',
+                    'WHERE' => ['NOT' => ['name' => null]]
+                ]),
+                'INSERT INTO `table` (SELECT `id`, `name` FROM `other` WHERE NOT (`name` IS NULL))'
             ]/*, [
                 'table', [
                     'field'  => new \QueryParam('field'),
@@ -475,7 +482,7 @@ OTHER EXPRESSION;"
                     `nameid` varchar(100) NOT NULL,
                     UNIQUE KEY (`nameid`)
                 )
-            SQL,
+SQL,
             'db_properties' => [],
             'warning' => null
         ];
@@ -498,7 +505,7 @@ OTHER EXPRESSION;"
                         `nameid` varchar(100) NOT NULL,
                         UNIQUE KEY (`nameid`)
                     ){$table_options}
-                SQL,
+SQL,
                 'db_properties' => [
                     'allow_myisam' => true
                 ],
@@ -511,7 +518,7 @@ OTHER EXPRESSION;"
                         `nameid` varchar(100) NOT NULL,
                         UNIQUE KEY (`nameid`)
                     ){$table_options}
-                SQL,
+SQL,
                 'db_properties' => [
                     'allow_myisam' => false
                 ],
@@ -527,7 +534,7 @@ OTHER EXPRESSION;"
                     `date` datetime NOT NULL,
                     UNIQUE KEY (`nameid`)
                 )
-            SQL,
+SQL,
             'db_properties' => [
                 'allow_datetime' => true
             ],
@@ -540,7 +547,7 @@ OTHER EXPRESSION;"
                     `date` datetime NOT NULL,
                     UNIQUE KEY (`nameid`)
                 )
-            SQL,
+SQL,
             'db_properties' => [
                 'allow_datetime' => false
             ],
@@ -554,7 +561,7 @@ OTHER EXPRESSION;"
                     `nameid` varchar(100) NOT NULL,
                     UNIQUE KEY (`nameid`)
                 ) ENGINE = InnoDB ROW_FORMAT = DYNAMIC DEFAULT CHARSET = utf8 COLLATE = utf8_unicode_ci
-            SQL,
+SQL,
             'db_properties' => [
                 'use_utf8mb4' => false
             ],
@@ -566,7 +573,7 @@ OTHER EXPRESSION;"
                     `nameid` varchar(100) NOT NULL,
                     UNIQUE KEY (`nameid`)
                 ) ENGINE = InnoDB ROW_FORMAT = DYNAMIC DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci
-            SQL,
+SQL,
             'db_properties' => [
                 'use_utf8mb4' => false
             ],
@@ -580,7 +587,7 @@ OTHER EXPRESSION;"
                     `nameid` varchar(100) NOT NULL,
                     UNIQUE KEY (`nameid`)
                 ) ENGINE = InnoDB ROW_FORMAT = DYNAMIC DEFAULT CHARSET = utf8 COLLATE = utf8_unicode_ci
-            SQL,
+SQL,
             'db_properties' => [
                 'use_utf8mb4' => true
             ],
@@ -592,7 +599,7 @@ OTHER EXPRESSION;"
                     `nameid` varchar(100) NOT NULL,
                     UNIQUE KEY (`nameid`)
                 ) ENGINE = InnoDB ROW_FORMAT = DYNAMIC DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci
-            SQL,
+SQL,
             'db_properties' => [
                 'use_utf8mb4' => true
             ],
@@ -620,7 +627,7 @@ OTHER EXPRESSION;"
                         {$int_declaration}
                         UNIQUE KEY (`nameid`)
                     )
-                SQL,
+SQL,
                 'db_properties' => [
                     'allow_signed_keys' => true
                 ],
@@ -633,7 +640,7 @@ OTHER EXPRESSION;"
                         {$int_declaration}
                         UNIQUE KEY (`nameid`)
                     )
-                SQL,
+SQL,
                 'db_properties' => [
                     'allow_signed_keys' => false
                 ],
@@ -658,7 +665,7 @@ OTHER EXPRESSION;"
                         `id` int NOT NULL AUTO_INCREMENT,
                         PRIMARY KEY (`id`)
                     )
-                SQL,
+SQL,
                 'db_properties' => [
                     'allow_signed_keys' => false
                 ],
@@ -690,8 +697,8 @@ OTHER EXPRESSION;"
         $table = sprintf('glpitests_%s', uniqid());
         $this->when(
             function () use ($db, $create_query_template, $drop_query_template, $table) {
-                $db->query(sprintf($create_query_template, $table));
-                $db->query(sprintf($drop_query_template, $table));
+                $db->doQuery(sprintf($create_query_template, $table));
+                $db->doQuery(sprintf($drop_query_template, $table));
             }
         )->error()
             ->withType(E_USER_WARNING)
@@ -735,7 +742,7 @@ OTHER EXPRESSION;"
     {
         $db = new \mock\DB();
 
-        $db->query('SELECT 1/0');
+        $db->doQuery('SELECT 1/0');
         $this->array($db->getLastQueryWarnings())->isEqualTo(
             [
                 [
@@ -747,7 +754,7 @@ OTHER EXPRESSION;"
         );
         $this->hasSqlLogRecordThatContains('1365: Division by 0', LogLevel::WARNING);
 
-        $db->query('SELECT CAST("1a" AS SIGNED), CAST("123b" AS SIGNED)');
+        $db->doQuery('SELECT CAST("1a" AS SIGNED), CAST("123b" AS SIGNED)');
         $this->array($db->getLastQueryWarnings())->isEqualTo(
             [
                 [
@@ -766,5 +773,69 @@ OTHER EXPRESSION;"
             '1292: Truncated incorrect INTEGER value: \'1a\'' . "\n" . '1292: Truncated incorrect INTEGER value: \'123b\'',
             LogLevel::WARNING
         );
+    }
+
+    protected function dataDrop()
+    {
+        return [
+            [
+                'tablename',
+                'TABLE',
+                false,
+                'DROP TABLE `tablename`'
+            ], [
+                'viewname',
+                'VIEW',
+                false,
+                'DROP VIEW `viewname`'
+            ], [
+                'tablename',
+                'TABLE',
+                true,
+                'DROP TABLE IF EXISTS `tablename`'
+            ], [
+                'viewname',
+                'VIEW',
+                true,
+                'DROP VIEW IF EXISTS `viewname`'
+            ]
+        ];
+    }
+
+    /**
+     * @dataProvider dataDrop
+     */
+    public function testBuildDrop($name, $type, $exists, $expected)
+    {
+        $this
+            ->if($this->newTestedInstance)
+            ->then
+            ->string($this->testedInstance->buildDrop($name, $type, $exists))->isIdenticalTo($expected);
+    }
+
+    public function testBuildDropWException()
+    {
+        $this->exception(
+            function () {
+                $this
+                    ->if($this->newTestedInstance)
+                    ->then
+                    ->string($this->testedInstance->buildDrop('aname', 'UNKNOWN'))->isIdenticalTo('');
+            }
+        )->hasMessage('Unknown type to drop: UNKNOWN');
+    }
+
+    /**
+     * Make sure depreciation throws an error in tests suite
+     * @return void
+     */
+    public function testDeprecatedDirectSql()
+    {
+        $db = new \DB();
+        $this->when($db->query('SELECT 1'))
+            ->error()
+            ->withType(E_USER_DEPRECATED)
+            ->withMessage('Direct query usage is strongly discouraged! Use DB::request() instead.')
+            ->exists();
     }
 }

@@ -66,53 +66,25 @@ class Transfer extends DbTestCase
                 '/^DB.*/',
                 '/^SlaLevel.*/',
                 '/^OlaLevel.*/',
-                'Reservation',
-                'ReservationItem',
                 'Event',
                 'Glpi\\Event',
                 'KnowbaseItem',
-                'NetworkPortMigration',
-                '/^TicketTemplate.*/',
-                '/^Computer_Software.*/',
                 '/SavedSearch.*/',
                 '/.*Notification.*/',
-                '/.*Cost.*/',
-                '/^Item_.*/',
                 '/^Device.*/',
-                '/.*Validation$/',
                 '/^Network.*/',
-                'CalendarSegment',
-                'IPAddress',
                 'IPNetwork',
                 'FQDN',
                 '/^SoftwareVersion.*/',
                 '/^SoftwareLicense.*/',
-                '/.*Predefined.*/',
-                '/.*Mandatory.*/',
-                '/.*Hidden.*/',
-                'Entity_Reminder',
-                'Document_Item',
-                'Cartridge',
-                '/.*Task.*/',
-                'Entity_RSSFeed',
-                'ComputerVirtualMachine',
                 'FieldUnicity',
                 'PurgeLogs',
-                '/.*_?KnowbaseItem_?.*/',
-                'Consumable',
-                'Infocom',
-                'ComputerAntivirus',
                 'TicketRecurrent',
                 'Agent',
-                'Printer_CartridgeInfo',
-                'PrinterLog',
                 'USBVendor',
                 'PCIVendor',
                 'PendingReasonCron',
-                'Database',
-                'Socket',
                 'Netpoint',
-                'Link_Itemtype',
             ]
         );
 
@@ -127,6 +99,11 @@ class Transfer extends DbTestCase
 
         $count = 0;
         foreach ($itemtypeslist as $itemtype) {
+            if (is_a($itemtype, \CommonDBConnexity::class, true)) {
+                // Do not check transfer of child items, they are not supposed to be transfered directly.
+                continue;
+            }
+
             $item_class = new \ReflectionClass($itemtype);
             if ($item_class->isAbstract()) {
                 continue;
@@ -561,5 +538,98 @@ class Transfer extends DbTestCase
                 $this->array($found_ids)->isEqualTo($expected_certificates_after_transfer[$itemtype][$id]);
             }
         }
+    }
+
+
+    public function testKeepLocationTransfer()
+    {
+        $this->login();
+
+       //Original entity
+        $fentity = (int)getItemByTypeName('Entity', '_test_root_entity', true);
+       //Destination entity
+        $dentity = (int)getItemByTypeName('Entity', '_test_child_2', true);
+
+        $location = new \Location();
+        $location_id = (int)$location->add([
+            'name'          => 'location',
+            'entities_id'   => $fentity,
+            'is_recursive'  => 1
+        ]);
+        $this->integer($location_id)->isGreaterThan(0);
+        $this->boolean($location->getFromDB($location_id))->isTrue();
+
+
+        $ticket = new \Ticket();
+        $ticket_id = (int)$ticket->add([
+            'name'         => 'ticket',
+            'content'         => 'content ticket',
+            'locations_id' => $location_id,
+            'entities_id'  => $fentity
+        ]);
+        $this->integer($ticket_id)->isGreaterThan(0);
+        $this->boolean($ticket->getFromDB($ticket_id))->isTrue();
+
+
+        //transer to another entity
+        $transfer = new \Transfer();
+        $this->boolean($transfer->getFromDB(1))->isTrue();
+
+        //update transfer model to keep location
+        $transfer->fields["keep_location"] = 1;
+        $this->boolean($transfer->update($transfer->fields))->isTrue();
+
+        $item_to_transfer = ["ticket" => [$ticket_id => $ticket_id]];
+        $transfer->moveItems($item_to_transfer, $dentity, $transfer->fields);
+
+        //reload ticket
+        $this->boolean($ticket->getFromDB($ticket_id))->isTrue();
+        $this->integer($ticket->fields['locations_id'])->isEqualTo($location_id);
+    }
+
+    public function testEmptyLocationTransfer()
+    {
+        $this->login();
+
+       //Original entity
+        $fentity = (int)getItemByTypeName('Entity', '_test_root_entity', true);
+       //Destination entity
+        $dentity = (int)getItemByTypeName('Entity', '_test_child_2', true);
+
+        $location = new \Location();
+        $location_id = (int)$location->add([
+            'name'          => 'location',
+            'entities_id'   => $fentity,
+            'is_recursive'  => 1
+        ]);
+        $this->integer($location_id)->isGreaterThan(0);
+        $this->boolean($location->getFromDB($location_id))->isTrue();
+
+
+        $ticket = new \Ticket();
+        $ticket_id = (int)$ticket->add([
+            'name'         => 'ticket',
+            'content'         => 'content ticket',
+            'locations_id' => $location_id,
+            'entities_id'  => $fentity
+        ]);
+        $this->integer($ticket_id)->isGreaterThan(0);
+        $this->boolean($ticket->getFromDB($ticket_id))->isTrue();
+
+
+        //transer to another entity
+        $transfer = new \Transfer();
+        $this->boolean($transfer->getFromDB(1))->isTrue();
+
+        //update transfer model to empty location
+        $transfer->fields["keep_location"] = 0;
+        $this->boolean($transfer->update($transfer->fields))->isTrue();
+
+        $item_to_transfer = ["ticket" => [$ticket_id => $ticket_id]];
+        $transfer->moveItems($item_to_transfer, $dentity, $transfer->fields);
+
+        //reload ticket
+        $this->boolean($ticket->getFromDB($ticket_id))->isTrue();
+        $this->integer($ticket->fields['locations_id'])->isEqualTo(0);
     }
 }

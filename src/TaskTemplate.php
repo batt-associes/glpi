@@ -59,7 +59,10 @@ class TaskTemplate extends AbstractITILChildTemplate
         return [['name'  => 'content',
             'label' => __('Content'),
             'type'  => 'tinymce',
-            'rows' => 10
+            // Images should remains in base64 in templates.
+            // When an element will be created from a template, tinymce will catch the base64 image and trigger the
+            // document upload process.
+            'convert_images_to_documents' => false,
         ],
             ['name'  => 'taskcategories_id',
                 'label' => TaskCategory::getTypeName(1),
@@ -144,7 +147,7 @@ class TaskTemplate extends AbstractITILChildTemplate
             'table'              => $this->getTable(),
             'field'              => 'actiontime',
             'name'               => __('Total duration'),
-            'datatype'           => 'actiontime',
+            'datatype'           => 'timestamp',
             'massiveaction'      => false
         ];
 

@@ -33,6 +33,8 @@
  * ---------------------------------------------------------------------
  */
 
+use Glpi\RichText\RichText;
+
 /**
  * DropdownTranslation Class
  *
@@ -229,6 +231,7 @@ class DropdownTranslation extends CommonDBChild
      **/
     public static function getNumberOfTranslationsForItem($item)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         return countElementsInTable(
@@ -274,6 +277,7 @@ class DropdownTranslation extends CommonDBChild
      **/
     public function generateCompletename($input, $add = true)
     {
+        /** @var \DBmysql $DB */
         global $DB;
        // Force completename translated : used for the first translation
         $_SESSION['glpi_dropdowntranslations'][$input['itemtype']]['completename'] = 'completename';
@@ -366,7 +370,11 @@ class DropdownTranslation extends CommonDBChild
      **/
     public static function showTranslations(CommonDropdown $item)
     {
-        global $DB, $CFG_GLPI;
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
+        global $CFG_GLPI, $DB;
 
         $rand    = mt_rand();
         $canedit = $item->can($item->getID(), UPDATE);
@@ -456,7 +464,14 @@ class DropdownTranslation extends CommonDBChild
                 echo "</td><td $onhover>";
                 $searchOption = $item->getSearchOptionByField('field', $data['field']);
                 echo $searchOption['name'] . "</td>";
-                echo "<td $onhover>" . $data['value'] . "</td>";
+                echo "<td $onhover>";
+                $matching_field = $item->getAdditionalField($data['field']);
+                if (($matching_field['type'] ?? null) === 'tinymce') {
+                    echo '<div class="rich_text_container">' . RichText::getSafeHtml($data['value']) . '</div>';
+                } else {
+                    echo $data['value'];
+                }
+                echo "</td>";
                 echo "</tr>";
             }
             echo "</table>";
@@ -481,11 +496,17 @@ class DropdownTranslation extends CommonDBChild
      */
     public function showForm($ID = -1, array $options = [])
     {
+        if (!isset($options['parent']) || !($options['parent'] instanceof CommonDBTM)) {
+            // parent is mandatory
+            trigger_error('Parent item must be defined in `$options["parent"]`.', E_USER_WARNING);
+            return false;
+        }
+
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
-        if (isset($options['parent']) && !empty($options['parent'])) {
-            $item = $options['parent'];
-        }
+        $item = $options['parent'];
+
         if ($ID > 0) {
             $this->check($ID, READ);
         } else {
@@ -533,12 +554,47 @@ class DropdownTranslation extends CommonDBChild
             echo $searchOption['name'];
         } else {
             echo "<span id='span_fields' name='span_fields'>";
-            self::dropdownFields($item, $_SESSION['glpilanguage']);
+            $rand = self::dropdownFields($item, $_SESSION['glpilanguage']);
             echo "</span>";
+            $params = [
+                'field'    => '__VALUE__',
+                'itemtype' => get_class($item),
+                'items_id' => $item->getID(),
+            ];
+            Ajax::updateItemOnSelectEvent(
+                "dropdown_field$rand",
+                "span_value",
+                $CFG_GLPI["root_doc"] . "/ajax/updateTranslationValue.php",
+                $params
+            );
+            echo Html::scriptBlock(<<<JAVASCRIPT
+                $(
+                    function() {
+                        $("#dropdown_field$rand").trigger("change");
+                    }
+                );
+JAVASCRIPT
+            );
         }
         echo "</td>";
         echo "<td>" . __('Value') . "</td>";
-        echo "<td><input type='text' name='value' value=\"" . $this->fields['value'] . "\" size='50'>";
+        echo "<td>";
+        echo "<span id='span_value'>";
+        if ($ID > 0) {
+            $matching_field = $item->getAdditionalField($this->fields['field']);
+            if (($matching_field['type'] ?? null) === 'tinymce') {
+                Html::textarea([
+                    'name'              => 'value',
+                    'value'             => RichText::getSafeHtml($this->fields["value"], true),
+                    'enable_richtext'   => true,
+                    'enable_images'     => false,
+                    'enable_fileupload' => false,
+                ]);
+            } else {
+                echo "<input type='text' name='value' value=\"" . $this->fields['value'] . "\" size='50'>";
+            }
+        }
+        echo "</span>";
         echo "</td>";
         echo "</tr>\n";
         $this->showFormButtons($options);
@@ -557,6 +613,7 @@ class DropdownTranslation extends CommonDBChild
      **/
     public static function dropdownFields(CommonDBTM $item, $language = '', $value = '')
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $options = [];
@@ -610,6 +667,7 @@ class DropdownTranslation extends CommonDBChild
      **/
     public static function getTranslatedValue($ID, $itemtype, $field = 'name', $language = '', $value = '')
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         if ($language == '') {
@@ -673,6 +731,7 @@ class DropdownTranslation extends CommonDBChild
      **/
     public static function getTranslationID($ID, $itemtype, $field, $language)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $iterator = $DB->request([
@@ -718,6 +777,7 @@ class DropdownTranslation extends CommonDBChild
      **/
     public static function isDropdownTranslationActive()
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         return $CFG_GLPI['translate_dropdowns'];
@@ -735,6 +795,7 @@ class DropdownTranslation extends CommonDBChild
      **/
     public static function getTranslationByName($itemtype, $field, $value)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $iterator = $DB->request([
@@ -768,6 +829,7 @@ class DropdownTranslation extends CommonDBChild
      **/
     public static function getTranslationsForAnItem($itemtype, $items_id, $field)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $iterator = $DB->request([
@@ -823,6 +885,7 @@ class DropdownTranslation extends CommonDBChild
      **/
     public static function getAvailableTranslations($language)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $tab = [];

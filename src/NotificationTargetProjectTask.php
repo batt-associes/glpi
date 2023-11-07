@@ -120,6 +120,7 @@ class NotificationTargetProjectTask extends NotificationTarget
      **/
     public function addTeamUsers()
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $iterator = $DB->request([
@@ -151,6 +152,7 @@ class NotificationTargetProjectTask extends NotificationTarget
      **/
     public function addTeamGroups($manager)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $iterator = $DB->request([
@@ -175,7 +177,11 @@ class NotificationTargetProjectTask extends NotificationTarget
      **/
     public function addTeamContacts()
     {
-        global $DB, $CFG_GLPI;
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
+        global $CFG_GLPI, $DB;
 
         $iterator = $DB->request([
             'SELECT' => 'items_id',
@@ -206,7 +212,11 @@ class NotificationTargetProjectTask extends NotificationTarget
      **/
     public function addTeamSuppliers()
     {
-        global $DB, $CFG_GLPI;
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
+        global $CFG_GLPI, $DB;
 
         $iterator = $DB->request([
             'SELECT' => 'items_id',
@@ -232,6 +242,10 @@ class NotificationTargetProjectTask extends NotificationTarget
 
     public function addDataForTemplate($event, $options = [])
     {
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
         global $CFG_GLPI, $DB;
 
        //----------- Reservation infos -------------- //
@@ -360,7 +374,7 @@ class NotificationTargetProjectTask extends NotificationTarget
         $this->data['tasks'] = [];
         foreach ($tasks as $task) {
             $tmp                            = [];
-            $tmp['##task.creationdate##']   = Html::convDateTime($task['date']);
+            $tmp['##task.creationdate##']   = Html::convDateTime($task['date_creation']);
             $tmp['##task.lastupdatedate##'] = Html::convDateTime($task['date_mod']);
             $tmp['##task.name##']           = $task['name'];
             $tmp['##task.description##']    = $task['content'];

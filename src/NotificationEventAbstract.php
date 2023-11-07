@@ -60,6 +60,10 @@ abstract class NotificationEventAbstract implements NotificationEventInterface
         $notify_me,
         $emitter = null
     ) {
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
         global $CFG_GLPI, $DB;
         if ($CFG_GLPI['notifications_' . $options['mode']]) {
             $entity = $notificationtarget->getEntity();
@@ -141,6 +145,7 @@ abstract class NotificationEventAbstract implements NotificationEventInterface
                                         : 0;
                                     $send_data['_entities_id']              = $entity;
                                     $send_data['mode']                      = $data['mode'];
+                                    $send_data['event']                     = $event;
 
                                     Notification::send($send_data);
                                 } else {

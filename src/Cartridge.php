@@ -48,6 +48,8 @@ class Cartridge extends CommonDBRelation
     public $dohistory                   = true;
     public $no_form_page                = true;
 
+    public static $rightname = 'cartridge';
+
     public static $itemtype_1 = 'CartridgeItem';
     public static $items_id_1 = 'cartridgeitems_id';
 
@@ -239,6 +241,7 @@ class Cartridge extends CommonDBRelation
      */
     public function backToStock(array $input, $history = 1)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $result = $DB->update(
@@ -273,6 +276,7 @@ class Cartridge extends CommonDBRelation
      **/
     public function install($pID, $tID)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
        // Get first unused cartridge
@@ -326,6 +330,7 @@ class Cartridge extends CommonDBRelation
      **/
     public function uninstall($ID)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         if ($this->getFromDB($ID)) {
@@ -484,6 +489,7 @@ class Cartridge extends CommonDBRelation
      **/
     public static function getTotalNumber($tID)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $row = $DB->request([
@@ -506,6 +512,7 @@ class Cartridge extends CommonDBRelation
      **/
     public static function getTotalNumberForPrinter($pID)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $row = $DB->request([
@@ -526,6 +533,7 @@ class Cartridge extends CommonDBRelation
      **/
     public static function getUsedNumber($tID)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $row = $DB->request([
@@ -555,6 +563,7 @@ class Cartridge extends CommonDBRelation
      **/
     public static function getUsedNumberForPrinter($pID)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $result = $DB->request([
@@ -579,6 +588,7 @@ class Cartridge extends CommonDBRelation
      **/
     public static function getOldNumber($tID)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $result = $DB->request([
@@ -604,6 +614,7 @@ class Cartridge extends CommonDBRelation
      **/
     public static function getOldNumberForPrinter($pID)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $result = $DB->request([
@@ -627,6 +638,7 @@ class Cartridge extends CommonDBRelation
      **/
     public static function getUnusedNumber($tID)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $result = $DB->request([
@@ -649,6 +661,7 @@ class Cartridge extends CommonDBRelation
      */
     public static function getStockTarget(int $tID): int
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $it = $DB->request([
@@ -672,6 +685,7 @@ class Cartridge extends CommonDBRelation
      */
     public static function getAlarmThreshold(int $tID): int
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $it = $DB->request([
@@ -718,6 +732,7 @@ class Cartridge extends CommonDBRelation
      **/
     public static function showForCartridgeItem(CartridgeItem $cartitem, $show_old = 0)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $tID = $cartitem->getField('id');
@@ -771,9 +786,9 @@ class Cartridge extends CommonDBRelation
 
         $number = count($iterator);
 
+        $rand = mt_rand();
         echo "<div class='spaced'>";
         if ($canedit && $number) {
-            $rand = mt_rand();
             Html::openMassiveActionsForm('mass' . __CLASS__ . $rand);
             $actions = ['purge' => _x('button', 'Delete permanently'),
                 'Infocom' . MassiveAction::CLASS_ACTION_SEPARATOR . 'activate'
@@ -972,7 +987,11 @@ class Cartridge extends CommonDBRelation
      **/
     public static function showForPrinter(Printer $printer, $old = 0)
     {
-        global $DB, $CFG_GLPI;
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
+        global $CFG_GLPI, $DB;
 
         $instID = $printer->getField('id');
         if (!self::canView()) {
@@ -1300,7 +1319,11 @@ class Cartridge extends CommonDBRelation
      */
     public static function getNotificationParameters($entity = 0)
     {
-        global $DB, $CFG_GLPI;
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
+        global $CFG_GLPI, $DB;
 
        //Look for parameters for this entity
         $iterator = $DB->request([
@@ -1400,6 +1423,6 @@ class Cartridge extends CommonDBRelation
 
     public static function getIcon()
     {
-        return "ti ti-droplet-filled-2";
+        return "ti ti-droplet-half-2-filled";
     }
 }

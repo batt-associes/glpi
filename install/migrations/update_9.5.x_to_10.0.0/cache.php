@@ -34,17 +34,17 @@
  */
 
 /**
- * @var DB $DB
- * @var Migration $migration
+ * @var \DBmysql $DB
+ * @var \Migration $migration
  */
 
 $had_custom_config = false;
 if (countElementsInTable('glpi_configs', ['name' => 'cache_db', 'context' => 'core'])) {
-    $DB->delete('glpi_configs', ['name' => 'cache_db', 'context' => 'core']);
+    $DB->deleteOrDie('glpi_configs', ['name' => 'cache_db', 'context' => 'core']);
     $had_custom_config = true;
 }
 if (countElementsInTable('glpi_configs', ['name' => 'cache_trans', 'context' => 'core'])) {
-    $DB->delete('glpi_configs', ['name' => 'cache_trans', 'context' => 'core']);
+    $DB->deleteOrDie('glpi_configs', ['name' => 'cache_trans', 'context' => 'core']);
     $had_custom_config = true;
 }
 

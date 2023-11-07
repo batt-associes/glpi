@@ -155,6 +155,7 @@ class NetworkPort extends CommonDBChild
      **/
     public static function getNetworkPortInstantiations()
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         return $CFG_GLPI['networkport_instantiations'];
@@ -271,6 +272,7 @@ class NetworkPort extends CommonDBChild
 
     public function post_updateItem($history = 1)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         if (count($this->updates)) {
@@ -659,7 +661,11 @@ class NetworkPort extends CommonDBChild
      **/
     public static function showForItem(CommonDBTM $item, $withtemplate = 0)
     {
-        global $DB, $CFG_GLPI;
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
+        global $CFG_GLPI, $DB;
 
         $itemtype = $item->getType();
         $items_id = $item->getField('id');
@@ -974,6 +980,7 @@ class NetworkPort extends CommonDBChild
      */
     protected function showPort(array $port, $dprefs, $so, $canedit, $agg, $rand, $with_ma = true)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $css_class = 'netport';
@@ -1061,13 +1068,13 @@ class NetworkPort extends CommonDBChild
                             }
 
                             if (!empty($in)) {
-                                $in = Toolbox::getSize($in, 1000);
+                                $in = Toolbox::getSize($in);
                             } else {
                                 $in = ' - ';
                             }
 
                             if (!empty($out)) {
-                                $out = Toolbox::getSize($out, 1000);
+                                $out = Toolbox::getSize($out);
                             } else {
                                 $out = ' - ';
                             }
@@ -1282,6 +1289,7 @@ class NetworkPort extends CommonDBChild
 
     protected function getIpsForPort($itemtype, $items_id)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $iterator = $DB->request([
@@ -1456,7 +1464,7 @@ class NetworkPort extends CommonDBChild
                 'joinparams' => $joinparams
             ]
         ];
-        NetworkName::rawSearchOptionsToAdd($tab, $networkNameJoin, $itemtype);
+        NetworkName::rawSearchOptionsToAdd($tab, $networkNameJoin);
 
         $instantjoin = ['jointype'   => 'child',
             'beforejoin' => ['table'      => 'glpi_networkports',
@@ -1629,7 +1637,8 @@ class NetworkPort extends CommonDBChild
             'table'              => $this->getTable(),
             'field'              => 'itemtype',
             'name'               => _n('Type', 'Types', 1),
-            'datatype'           => 'itemtype',
+            'datatype'           => 'itemtypename',
+            'itemtype_list'      => 'networkport_types',
             'massiveaction'      => false
         ];
 
@@ -1759,6 +1768,7 @@ class NetworkPort extends CommonDBChild
 
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
        // Can exists on template
@@ -1821,6 +1831,7 @@ class NetworkPort extends CommonDBChild
 
     public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0)
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         if (
@@ -1887,6 +1898,7 @@ class NetworkPort extends CommonDBChild
      */
     public function isHubConnected($networkports_id): bool
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $wired = new NetworkPort_NetworkPort();

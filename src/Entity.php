@@ -155,11 +155,39 @@ class Entity extends CommonTreeDropdown
         ];
     }
 
-    /**
-     * @since 0.84
-     **/
+    public function pre_updateInDB()
+    {
+        /** @var \DBmysql $DB */
+        global $DB;
+
+        if (($key = array_search('name', $this->updates)) !== false) {
+            /// Check if entity does not exist
+            $iterator = $DB->request([
+                'FROM' => $this->getTable(),
+                'WHERE' => [
+                    'name' => $this->input['name'],
+                    'entities_id' => $this->input['entities_id'],
+                    'id' => ['<>', $this->input['id']]
+                ]
+            ]);
+
+            if (count($iterator)) {
+                //To display a message
+                $this->fields['name'] = $this->oldvalues['name'];
+                unset($this->updates[$key]);
+                unset($this->oldvalues['name']);
+                Session::addMessageAfterRedirect(
+                    __('An entity with that name already exists at the same level.'),
+                    false,
+                    ERROR
+                );
+            }
+        }
+    }
+
     public function pre_deleteItem()
     {
+        /** @var \Psr\SimpleCache\CacheInterface $GLPI_CACHE */
         global $GLPI_CACHE;
 
         // Security do not delete root entity
@@ -191,6 +219,11 @@ class Entity extends CommonTreeDropdown
         return _n('Entity', 'Entities', $nb);
     }
 
+    public static function canCreate()
+    {
+        // Do not show the create button if no recusive access on current entity
+        return parent::canCreate() && Session::haveRecursiveAccessToEntity(Session::getActiveEntity());
+    }
 
     public function canCreateItem()
     {
@@ -294,6 +327,7 @@ class Entity extends CommonTreeDropdown
      **/
     public function prepareInputForAdd($input)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $input['name'] = isset($input['name']) ? trim($input['name']) : '';
@@ -390,6 +424,7 @@ class Entity extends CommonTreeDropdown
      */
     private function handleConfigStrategyFields(array $input): array
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         foreach ($input as $field => $value) {
@@ -585,6 +620,7 @@ class Entity extends CommonTreeDropdown
 
     public function post_updateItem($history = 1)
     {
+        /** @var \Psr\SimpleCache\CacheInterface $GLPI_CACHE */
         global $GLPI_CACHE;
 
         parent::post_updateItem($history);
@@ -650,6 +686,7 @@ class Entity extends CommonTreeDropdown
      */
     public function cleanEntitySelectorCache()
     {
+        /** @var \Psr\SimpleCache\CacheInterface $GLPI_CACHE */
         global $GLPI_CACHE;
 
         $GLPI_CACHE->delete('entity_selector');
@@ -1250,7 +1287,7 @@ class Entity extends CommonTreeDropdown
         ];
 
         $tab[] = [
-            'id'                 => '71',
+            'id'                 => '75',
             'table'              => self::getTable(),
             'field'              => 'contracts_id_default',
             'name'               => __('Default contract'),
@@ -1450,6 +1487,7 @@ class Entity extends CommonTreeDropdown
      **/
     public static function getEntitiesToNotify($field)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $entities = [];
@@ -2492,6 +2530,7 @@ class Entity extends CommonTreeDropdown
     public static function showUiCustomizationOptions(Entity $entity)
     {
 
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $ID = $entity->getField('id');
@@ -2618,6 +2657,7 @@ class Entity extends CommonTreeDropdown
      **/
     private static function getEntityIDByField($field, $value)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $iterator = $DB->request([
@@ -2710,6 +2750,7 @@ class Entity extends CommonTreeDropdown
      **/
     public static function showHelpdeskOptions(Entity $entity)
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $ID = $entity->getField('id');
@@ -3215,6 +3256,10 @@ class Entity extends CommonTreeDropdown
      **/
     public static function getUsedConfig($fieldref, $entities_id, $fieldval = '', $default_value = -2)
     {
+        /**
+         * @var \DBmysql $DB
+         * @var \Psr\SimpleCache\CacheInterface $GLPI_CACHE
+         */
         global $DB, $GLPI_CACHE;
 
         $id_using_strategy = [
@@ -3997,7 +4042,7 @@ class Entity extends CommonTreeDropdown
      *
      * @return string|null
      */
-    public static function badgeCompletename(string $entity_string = ""): string
+    public static function badgeCompletename(string $entity_string = "", ?string $title = null): string
     {
         // `completename` is expected to be received as it is stored in DB,
         // meaning that `>` separator is not encoded, but `<`, `>` and `&` from self or parent names are encoded.
@@ -4009,7 +4054,9 @@ class Entity extends CommonTreeDropdown
         }
 
         // Construct HTML with special chars encoded.
-        $title = htmlspecialchars(implode(' > ', $names));
+        if ($title === null) {
+            $title = htmlspecialchars(implode(' > ', $names));
+        }
         $breadcrumbs = implode(
             '<i class="fas fa-caret-right mx-1"></i>',
             array_map(

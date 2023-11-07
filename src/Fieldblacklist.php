@@ -246,6 +246,7 @@ class Fieldblacklist extends CommonDropdown
      **/
     public function showItemtype()
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         if ($this->fields['id'] > 0) {
@@ -254,7 +255,8 @@ class Fieldblacklist extends CommonDropdown
             }
             echo "<input type='hidden' name='itemtype' value='" . $this->fields['itemtype'] . "'>";
         } else {
-           //Add criteria : display dropdown
+            //Add criteria : display dropdown
+            $options = [];
             foreach ($CFG_GLPI['unicity_types'] as $itemtype) {
                 if ($item = getItemForItemtype($itemtype)) {
                     if ($item->can(-1, READ)) {
@@ -286,6 +288,7 @@ class Fieldblacklist extends CommonDropdown
 
     public function selectCriterias()
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         echo "<span id='span_fields' name='span_fields'>";
@@ -329,6 +332,7 @@ class Fieldblacklist extends CommonDropdown
      **/
     public static function dropdownField($itemtype, $options = [])
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $p['name']    = 'field';
@@ -403,6 +407,7 @@ class Fieldblacklist extends CommonDropdown
      **/
     public static function isFieldBlacklisted($itemtype, $entities_id, $field, $value)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $result = $DB->request([

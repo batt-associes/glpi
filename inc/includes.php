@@ -33,7 +33,11 @@
  * ---------------------------------------------------------------------
  */
 
+use Glpi\Http\Firewall;
 use Glpi\Toolbox\Sanitizer;
+
+/** @var array $CFG_GLPI */
+global $CFG_GLPI;
 
 if (!defined('GLPI_ROOT')) {
     define('GLPI_ROOT', dirname(__DIR__));
@@ -44,6 +48,7 @@ include_once GLPI_ROOT . '/inc/based_config.php';
 // Init Timer to compute time of display
 $TIMER_DEBUG = new Timer();
 $TIMER_DEBUG->start();
+\Glpi\Debug\Profiler::getInstance()->start('php_request');
 
 
 /// TODO try to remove them if possible
@@ -55,6 +60,11 @@ include_once(GLPI_ROOT . "/inc/config.php");
 // Security of PHP_SELF
 $_SERVER['PHP_SELF'] = Html::cleanParametersURL($_SERVER['PHP_SELF']);
 
+if (!isCommandLine()) {
+    $firewall = new Firewall($CFG_GLPI['root_doc']);
+    $firewall->applyStrategy($_SERVER['PHP_SELF'], $SECURITY_STRATEGY ?? null);
+}
+
 // Load Language file
 Session::loadLanguage();
 
@@ -62,6 +72,8 @@ if (
     isset($_SESSION['glpi_use_mode'])
     && ($_SESSION['glpi_use_mode'] == Session::DEBUG_MODE)
 ) {
+    // Start the debug profile
+    $profile = \Glpi\Debug\Profile::getCurrent();
     $SQL_TOTAL_REQUEST    = 0;
     $DEBUG_SQL = [
         'queries' => [],
@@ -87,22 +99,22 @@ if (!isset($PLUGINS_INCLUDED)) {
 }
 
 // Security system
-if (isset($_POST)) {
+if (count($_POST) > 0) {
     $_UPOST = $_POST; //keep raw, as a workaround
     if (isset($_POST['_glpi_simple_form'])) {
         $_POST = array_map('urldecode', $_POST);
     }
     $_POST = Sanitizer::sanitize($_POST);
 }
-if (isset($_GET)) {
+if (count($_GET) > 0) {
     $_UGET = $_GET; //keep raw, as a workaround
     $_GET  = Sanitizer::sanitize($_GET);
 }
-if (isset($_REQUEST)) {
+if (count($_REQUEST) > 0) {
     $_UREQUEST = $_REQUEST; //keep raw, as a workaround
     $_REQUEST  = Sanitizer::sanitize($_REQUEST);
 }
-if (isset($_FILES)) {
+if (count($_FILES) > 0) {
     $_UFILES = $_FILES; //keep raw, as a workaround
     foreach ($_FILES as &$file) {
         $file['name'] = Sanitizer::sanitize($file['name']);
@@ -143,7 +155,7 @@ if (isset($_REQUEST['glpilist_limit'])) {
 if (
     GLPI_USE_CSRF_CHECK
     && !isAPI()
-    && isset($_POST) && is_array($_POST) && count($_POST)
+    && count($_POST) > 0
 ) {
     if (preg_match(':' . $CFG_GLPI['root_doc'] . '(/(plugins|marketplace)/[^/]*|)/ajax/:', $_SERVER['REQUEST_URI']) === 1) {
        // Keep CSRF token as many AJAX requests may be made at the same time.

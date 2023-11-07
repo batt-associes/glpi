@@ -163,6 +163,7 @@ class Monitor extends CommonDBTM
      **/
     public function getLinkedItems()
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $iterator = $DB->request([
@@ -476,7 +477,7 @@ class Monitor extends CommonDBTM
         ];
 
         $tab[] = [
-            'id'                 => '129',
+            'id'                 => '1429',
             'table'              => 'glpi_computers_items',
             'field'              => 'id',
             'name'               => _x('quantity', 'Number of monitors'),

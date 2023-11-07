@@ -36,7 +36,7 @@
 use Glpi\SocketModel;
 
 // Current version of GLPI
-define('GLPI_VERSION', '10.0.8-dev');
+define('GLPI_VERSION', '10.0.11-dev');
 
 $schema_file = sprintf('%s/install/mysql/glpi-empty.sql', GLPI_ROOT);
 define(
@@ -49,7 +49,7 @@ if (!defined('GLPI_MARKETPLACE_PRERELEASES')) {
 }
 
 define('GLPI_MIN_PHP', '7.4.0'); // Must also be changed in top of index.php
-define('GLPI_MAX_PHP', '8.3.0'); // (Exclusive) Must also be changed in top of index.php
+define('GLPI_MAX_PHP', '8.4.0'); // (Exclusive) Must also be changed in top of index.php
 define('GLPI_YEAR', '2023');
 
 //Define a global recipient address for email notifications
@@ -305,7 +305,7 @@ $CFG_GLPI["dictionnary_types"]            = ['ComputerModel', 'ComputerType', 'M
     'DatabaseInstanceType', SocketModel::class, 'CableType'
 ];
 
-$CFG_GLPI["helpdesk_visible_types"]       = ['Software', 'Appliance', 'Database'];
+$CFG_GLPI["helpdesk_visible_types"]       = ['Software', 'Appliance', 'DatabaseInstance'];
 
 $CFG_GLPI["networkport_types"]            = ['Computer', 'Monitor', 'NetworkEquipment', 'Peripheral',
     'Phone', 'Printer', 'Enclosure', 'PDU', 'Cluster', 'Unmanaged'
@@ -463,7 +463,7 @@ $CFG_GLPI['user_pref_field'] = ['backcreated', 'csv_delimiter', 'date_format',
     'priority_6', 'refresh_views', 'set_default_tech',
     'set_default_requester', 'show_count_on_tabs',
     'show_jobs_at_login', 'task_private', 'task_state',
-    'use_flat_dropdowntree', 'palette', 'page_layout',
+    'use_flat_dropdowntree', 'use_flat_dropdowntree_on_search_result', 'palette', 'page_layout',
     'highcontrast_css', 'default_dashboard_central', 'default_dashboard_assets',
     'default_dashboard_helpdesk', 'default_dashboard_mini_ticket', 'default_central_tab',
     'fold_menu', 'fold_search', 'savedsearches_pinned', 'richtext_layout', 'timeline_order',

@@ -197,6 +197,7 @@ class Change extends CommonITILObject
 
     public function pre_deleteItem()
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         if (!isset($this->input['_disablenotif']) && $CFG_GLPI['use_notifications']) {
@@ -303,6 +304,7 @@ class Change extends CommonITILObject
 
     public function post_updateItem($history = 1)
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         parent::post_updateItem($history);
@@ -345,6 +347,7 @@ class Change extends CommonITILObject
 
     public function post_addItem()
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         parent::post_addItem();
@@ -510,7 +513,8 @@ class Change extends CommonITILObject
             'field'              => 'impactcontent',
             'name'               => __('Analysis impact'),
             'massiveaction'      => false,
-            'datatype'           => 'text'
+            'datatype'           => 'text',
+            'htmltext'           => true
         ];
 
         $tab[] = [
@@ -519,7 +523,8 @@ class Change extends CommonITILObject
             'field'              => 'controlistcontent',
             'name'               => __('Control list'),
             'massiveaction'      => false,
-            'datatype'           => 'text'
+            'datatype'           => 'text',
+            'htmltext'           => true
         ];
 
         $tab[] = [
@@ -528,7 +533,8 @@ class Change extends CommonITILObject
             'field'              => 'rolloutplancontent',
             'name'               => __('Deployment plan'),
             'massiveaction'      => false,
-            'datatype'           => 'text'
+            'datatype'           => 'text',
+            'htmltext'           => true
         ];
 
         $tab[] = [
@@ -537,7 +543,8 @@ class Change extends CommonITILObject
             'field'              => 'backoutplancontent',
             'name'               => __('Backup plan'),
             'massiveaction'      => false,
-            'datatype'           => 'text'
+            'datatype'           => 'text',
+            'htmltext'           => true
         ];
 
         $tab[] = [
@@ -546,7 +553,8 @@ class Change extends CommonITILObject
             'field'              => 'checklistcontent',
             'name'               => __('Checklist'),
             'massiveaction'      => false,
-            'datatype'           => 'text'
+            'datatype'           => 'text',
+            'htmltext'           => true
         ];
 
         $tab = array_merge($tab, Notepad::rawSearchOptionsToAdd());
@@ -692,6 +700,7 @@ class Change extends CommonITILObject
      **/
     public static function showListForItem(CommonDBTM $item, $withtemplate = 0)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         if (!Session::haveRight(self::$rightname, self::READALL)) {
@@ -949,6 +958,7 @@ class Change extends CommonITILObject
      */
     public function getActiveChangesForItem($itemtype, $items_id)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         return $DB->request([
@@ -1042,7 +1052,11 @@ class Change extends CommonITILObject
      */
     public static function showCentralList($start, $status = "process", $showgroupchanges = true)
     {
-        global $DB, $CFG_GLPI;
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
+        global $CFG_GLPI, $DB;
 
         if (!static::canView()) {
             return false;
@@ -1356,7 +1370,11 @@ class Change extends CommonITILObject
      **/
     public static function showCentralCount(bool $foruser = false, bool $display = true)
     {
-        global $DB, $CFG_GLPI;
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
+        global $CFG_GLPI, $DB;
 
        // show a tab with count of jobs in the central and give link
         if (!static::canView()) {

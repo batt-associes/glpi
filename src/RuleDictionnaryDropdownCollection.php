@@ -49,6 +49,7 @@ class RuleDictionnaryDropdownCollection extends RuleCollection
 
     public function replayRulesOnExistingDB($offset = 0, $maxtime = 0, $items = [], $params = [])
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
        // Model check : need to check using manufacturer extra data so specific function
@@ -78,7 +79,7 @@ class RuleDictionnaryDropdownCollection extends RuleCollection
             foreach ($iterator as $data) {
                 if (!($i % $step)) {
                     if (isCommandLine()) {
-                      //TRANS: %1$s is a row, %2$s is total rows
+                        //TRANS: %1$s is a row, %2$s is total rows
                         printf(__('Replay rules on existing database: %1$s/%2$s') . "\r", $i, $nb);
                     } else {
                         Html::changeProgressBarPosition($i, $nb, "$i / $nb");
@@ -133,6 +134,7 @@ class RuleDictionnaryDropdownCollection extends RuleCollection
      **/
     public function replayRulesOnExistingDBForModel($offset = 0, $maxtime = 0)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         if (isCommandLine()) {

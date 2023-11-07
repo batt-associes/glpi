@@ -164,6 +164,7 @@ class NetworkEquipment extends CommonDBTM
      **/
     public function canUnrecurs()
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $ID = $this->fields['id'];
@@ -409,6 +410,14 @@ class NetworkEquipment extends CommonDBTM
         ];
 
         $tab[] = [
+            'id'                 => '12',
+            'table'              => $this->getTable(),
+            'field'              => 'uuid',
+            'name'               => __('UUID'),
+            'datatype'           => 'string',
+        ];
+
+        $tab[] = [
             'id'                 => '14',
             'table'              => $this->getTable(),
             'field'              => 'ram',
@@ -492,9 +501,9 @@ class NetworkEquipment extends CommonDBTM
 
         $tab = array_merge($tab, Rack::rawSearchOptionsToAdd(get_class($this)));
 
-        $tab = array_merge($tab, Socket::rawSearchOptionsToAdd(get_class($this)));
+        $tab = array_merge($tab, Socket::rawSearchOptionsToAdd());
 
-        $tab = array_merge($tab, SNMPCredential::rawSearchOptionsToAdd(get_class($this)));
+        $tab = array_merge($tab, SNMPCredential::rawSearchOptionsToAdd());
 
         return $tab;
     }

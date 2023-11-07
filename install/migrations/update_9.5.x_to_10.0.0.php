@@ -40,6 +40,10 @@
  **/
 function update95xto1000()
 {
+    /**
+     * @var \DBmysql $DB
+     * @var \Migration $migration
+     */
     global $DB, $migration;
 
     $updateresult       = true;
@@ -79,7 +83,7 @@ function update95xto1000()
         }
     }
     foreach ($DELFROMDISPLAYPREF as $type => $tab) {
-        $DB->delete(
+        $DB->deleteOrDie(
             'glpi_displaypreferences',
             Toolbox::addslashes_deep(
                 [

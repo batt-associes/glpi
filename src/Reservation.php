@@ -90,6 +90,7 @@ class Reservation extends CommonDBChild
 
     public function pre_deleteItem()
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         if (
@@ -140,6 +141,7 @@ class Reservation extends CommonDBChild
      **/
     public function post_updateItem($history = 1)
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         if (
@@ -212,6 +214,7 @@ class Reservation extends CommonDBChild
 
     public function post_addItem()
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         if (!isset($this->input['_disablenotif']) && $CFG_GLPI["use_notifications"]) {
@@ -229,6 +232,7 @@ class Reservation extends CommonDBChild
      **/
     public function getUniqueGroupFor($reservationitems_id)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         do {
@@ -256,6 +260,7 @@ class Reservation extends CommonDBChild
      **/
     public function is_reserved()
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         if (
@@ -389,6 +394,7 @@ class Reservation extends CommonDBChild
 
     public function post_purgeItem()
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         if (isset($this->input['_delete_group']) && $this->input['_delete_group']) {
@@ -414,9 +420,10 @@ class Reservation extends CommonDBChild
      **/
     public static function showCalendar(int $ID = 0)
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
-        if (!Session::haveRight("reservation", ReservationItem::RESERVEANITEM)) {
+        if (!Session::haveRightsOr("reservation", [READ, ReservationItem::RESERVEANITEM])) {
             return false;
         }
 
@@ -469,6 +476,10 @@ class Reservation extends CommonDBChild
         echo "<div id='reservations_planning_$rand' class='card-body reservations-planning'></div>";
         echo "</div>"; // .reservation_panel
 
+        $can_reserve = (
+            Session::haveRight("reservation", ReservationItem::RESERVEANITEM)
+            && count(self::getReservableItemtypes()) > 0
+        ) ? "true" : "false";
         $js = <<<JAVASCRIPT
       $(function() {
          var reservation = new Reservations();
@@ -477,6 +488,7 @@ class Reservation extends CommonDBChild
             is_all: $is_all,
             rand: $rand,
             license_key: '$scheduler_key',
+            can_reserve: $can_reserve,
          });
          reservation.displayPlanning();
       });
@@ -487,6 +499,7 @@ JAVASCRIPT;
 
     public static function getEvents(array $params): array
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $defaults = [
@@ -590,6 +603,7 @@ JAVASCRIPT;
 
     public static function getResources()
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $res_i_table = ReservationItem::getTable();
@@ -665,6 +679,7 @@ JAVASCRIPT;
      **/
     public function showForm($ID, array $options = [])
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         if (!Session::haveRight("reservation", ReservationItem::RESERVEANITEM)) {
@@ -720,7 +735,7 @@ JAVASCRIPT;
            // only one id = 0, display an item dropdown
             Dropdown::showSelectItemFromItemtypes([
                 'items_id_name'   => 'items[]',
-                'itemtypes'       => $CFG_GLPI['reservation_types'],
+                'itemtypes'       => self::getReservableItemtypes(),
                 'entity_restrict' => Session::getActiveEntity(),
                 'checkright'      => false,
                 'ajax_page'       => $CFG_GLPI['root_doc'] . '/ajax/reservable_items.php'
@@ -1068,7 +1083,11 @@ JAVASCRIPT;
      **/
     public static function showForUser($ID)
     {
-        global $DB, $CFG_GLPI;
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
+        global $CFG_GLPI, $DB;
 
         $resaID = 0;
 
@@ -1248,6 +1267,22 @@ JAVASCRIPT;
         echo "</table></div>\n";
     }
 
+    /**
+     * Get reservable itemtypes from GLPI config, filtering out itemtype with no
+     * reservable items
+     *
+     * @return array
+     */
+    public static function getReservableItemtypes(): array
+    {
+        /** @var array $CFG_GLPI */
+        global $CFG_GLPI;
+
+        return array_filter(
+            $CFG_GLPI['reservation_types'],
+            fn ($type) => ReservationItem::countAvailableItems($type) > 0
+        );
+    }
 
     public static function getIcon()
     {

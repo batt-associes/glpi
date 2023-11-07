@@ -181,6 +181,7 @@ class TicketSatisfaction extends CommonDBTM
 
     public function post_addItem()
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         if (!isset($this->input['_disablenotif']) && $CFG_GLPI["use_notifications"]) {
@@ -197,11 +198,18 @@ class TicketSatisfaction extends CommonDBTM
      **/
     public function post_UpdateItem($history = 1)
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         if (!isset($this->input['_disablenotif']) && $CFG_GLPI["use_notifications"]) {
+            // Send notification only if fields related to reply are updated.
+            $answer_updates = array_filter(
+                $this->updates,
+                fn ($field) => in_array($field, ['satisfaction', 'comment'])
+            );
+
             $ticket = new Ticket();
-            if ($ticket->getFromDB($this->fields['tickets_id'])) {
+            if (count($answer_updates) > 1 && $ticket->getFromDB($this->fields['tickets_id'])) {
                 NotificationEvent::raiseEvent("replysatisfaction", $ticket);
             }
         }

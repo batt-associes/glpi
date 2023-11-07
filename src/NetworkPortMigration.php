@@ -60,6 +60,7 @@ class NetworkPortMigration extends CommonDBChild
 
     private function cleanDatabase()
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $networkport = new NetworkPort();
@@ -76,8 +77,7 @@ class NetworkPortMigration extends CommonDBChild
         }
 
         if (countElementsInTable($this->getTable()) == 0) {
-            $query = "DROP TABLE " . $DB->quoteName($this->getTable());
-            $DB->query($query);
+            $DB->dropTable($this->getTable());
         }
     }
 
@@ -123,6 +123,7 @@ class NetworkPortMigration extends CommonDBChild
 
     public function showForm($ID, array $options = [])
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         if (!self::canView()) {

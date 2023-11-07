@@ -339,6 +339,34 @@ HTML,
             'encode_output_entities' => false,
             'expected_result'        => '<table width="0" align="left" cellspacing="10" style="width: 100%;"><tr><td>Test</td></tr></table>',
         ];
+
+        // Images path should be corrected when root doc changed
+        // see #15113
+        foreach (['', '/glpi', '/path/to/glpi'] as $expected_prefix) {
+            global $CFG_GLPI;
+            $CFG_GLPI['root_doc'] = $expected_prefix;
+            foreach (['/previous/glpi/path', '', '/glpi'] as $previous_prefix) {
+                yield [
+                    'content'                => <<<HTML
+    <p>
+      Images path should be corrected when root doc changed:
+      <a href="{$previous_prefix}/front/document.send.php?docid=180&amp;itemtype=Ticket&amp;items_id=515" target="_blank">
+        <img src="{$previous_prefix}/front/document.send.php?docid=180&amp;itemtype=Ticket&amp;items_id=515" alt="34c09468-b2d8e96f-64f991f5ce1660.58639912" width="248">
+      </a>
+    </p>
+HTML,
+                    'encode_output_entities' => false,
+                    'expected_result'        => <<<HTML
+    <p>
+      Images path should be corrected when root doc changed:
+      <a href="{$expected_prefix}/front/document.send.php?docid=180&amp;itemtype=Ticket&amp;items_id=515" target="_blank">
+        <img src="{$expected_prefix}/front/document.send.php?docid=180&amp;itemtype=Ticket&amp;items_id=515" alt="34c09468-b2d8e96f-64f991f5ce1660.58639912" width="248" />
+      </a>
+    </p>
+HTML,
+                ];
+            }
+        }
     }
 
     /**
@@ -364,6 +392,7 @@ HTML,
             'compact'                => false,
             'encode_output_entities' => false,
             'preserve_case'          => false,
+            'preserve_line_breaks'   => false,
             'expected_result'        => 'Some HTML text',
         ];
 
@@ -374,6 +403,7 @@ HTML,
             'compact'                => false,
             'encode_output_entities' => true,
             'preserve_case'          => false,
+            'preserve_line_breaks'   => false,
             'expected_result'        => 'Some HTML content with special chars like &gt; &amp; &lt;.',
         ];
 
@@ -395,6 +425,7 @@ PLAINTEXT;
             'compact'                => false,
             'encode_output_entities' => false,
             'preserve_case'          => false,
+            'preserve_line_breaks'   => false,
             'expected_result'        => $result,
         ];
         yield [
@@ -403,6 +434,7 @@ PLAINTEXT;
             'compact'                => false,
             'encode_output_entities' => false,
             'preserve_case'          => false,
+            'preserve_line_breaks'   => false,
             'expected_result'        => $result,
         ];
 
@@ -425,7 +457,25 @@ HTML;
             'compact'                => false,
             'encode_output_entities' => false,
             'preserve_case'          => false,
+            'preserve_line_breaks'   => false,
             'expected_result'        => 'A title Text in a paragraph el 1 el 2 Should I yell for the important words?',
+        ];
+        yield [
+            'content'                => $content,
+            'keep_presentation'      => false,
+            'compact'                => false,
+            'encode_output_entities' => false,
+            'preserve_case'          => false,
+            'preserve_line_breaks'   => true,
+            'expected_result'        => <<<PLAINTEXT
+A title
+Text in a paragraph
+
+el 1
+el 2
+
+Should I yell for the important words?
+PLAINTEXT,
         ];
 
         // Text with presentation from complex HTML
@@ -436,6 +486,7 @@ HTML;
             'compact'                => false,
             'encode_output_entities' => false,
             'preserve_case'          => false,
+            'preserve_line_breaks'   => false,
             'expected_result'        => <<<PLAINTEXT
 A TITLE
 
@@ -456,6 +507,7 @@ PLAINTEXT,
             'compact'                => true,
             'encode_output_entities' => false,
             'preserve_case'          => false,
+            'preserve_line_breaks'   => false,
             'expected_result'        => <<<PLAINTEXT
 A TITLE
 
@@ -476,6 +528,7 @@ PLAINTEXT,
             'compact'                => true,
             'encode_output_entities' => false,
             'preserve_case'          => true,
+            'preserve_line_breaks'   => false,
             'expected_result'        => <<<PLAINTEXT
 A title
 
@@ -498,11 +551,12 @@ PLAINTEXT,
         bool $compact,
         bool $encode_output_entities,
         bool $preserve_case,
+        bool $preserve_line_breaks,
         string $expected_result
     ) {
         $richtext = $this->newTestedInstance();
 
-        $this->string($richtext->getTextFromHtml($content, $keep_presentation, $compact, $encode_output_entities, $preserve_case))
+        $this->string($richtext->getTextFromHtml($content, $keep_presentation, $compact, $encode_output_entities, $preserve_case, $preserve_line_breaks))
             ->isEqualTo($expected_result);
     }
 

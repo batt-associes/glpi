@@ -250,11 +250,56 @@ class DbTestCase extends \GLPITestCase
      *
      * @param string $itemtype
      * @param array $inputs
+     *
+     * @return array created items
      */
-    protected function createItems($itemtype, $inputs)
+    protected function createItems($itemtype, $inputs): array
     {
+        $items = [];
         foreach ($inputs as $input) {
-            $this->createItem($itemtype, $input);
+            $items[] = $this->createItem($itemtype, $input);
         }
+
+        return $items;
+    }
+
+    /**
+     * Helper method to avoid writting the same boilerplate code for rule creation
+     *
+     * @param RuleBuilder $builder RuleConfiguration
+     *
+     * @return Rule Created rule
+     */
+    protected function createRule(RuleBuilder $builder): Rule
+    {
+        $rule = $this->createItem(RuleTicket::class, [
+            'is_active'    => 1,
+            'sub_type'     => 'RuleTicket',
+            'name'         => $builder->getName(),
+            'match'        => $builder->getOperator(),
+            'condition'    => $builder->getCondition(),
+            'is_recursive' => $builder->isRecursive(),
+            'entities_id'  => $builder->getEntity(),
+        ]);
+
+        foreach ($builder->getCriteria() as $criterion) {
+            $this->createItem(RuleCriteria::class, [
+                'rules_id'  => $rule->getID(),
+                'criteria'  => $criterion['criteria'],
+                'condition' => $criterion['condition'],
+                'pattern'   => $criterion['pattern'],
+            ]);
+        }
+
+        foreach ($builder->getActions() as $criterion) {
+            $this->createItem(RuleAction::class, [
+                'rules_id'    => $rule->getID(),
+                'action_type' => $criterion['action_type'],
+                'field'       => $criterion['field'],
+                'value'       => $criterion['value'],
+            ]);
+        }
+
+        return $rule;
     }
 }

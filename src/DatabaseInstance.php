@@ -94,6 +94,7 @@ class DatabaseInstance extends CommonDBTM
 
     public function getDatabases(): array
     {
+        /** @var \DBmysql $DB */
         global $DB;
         $dbs = [];
 
@@ -114,6 +115,7 @@ class DatabaseInstance extends CommonDBTM
 
     public function showForm($ID, array $options = [])
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $rand = mt_rand();
@@ -501,6 +503,7 @@ class DatabaseInstance extends CommonDBTM
      */
     public static function getTypes($all = false): array
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $types = $CFG_GLPI['databaseinstance_types'];
@@ -561,6 +564,7 @@ class DatabaseInstance extends CommonDBTM
 
     public static function showInstances(CommonDBTM $item, $withtemplate)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $instances = $DB->request([
@@ -589,7 +593,7 @@ class DatabaseInstance extends CommonDBTM
             foreach ($instances as $row) {
                 $item = new self();
                 $item->getFromDB($row['id']);
-                echo "<tr lass='tab_bg_1'>";
+                echo "<tr class='tab_bg_1" . ($item->fields['is_deleted'] ? '_2' : '') . "'>";
                 echo "<td>" . $item->getLink() . "</td>";
                 $databases = $item->getDatabases();
                 echo "<td>" . sprintf(_n('%1$d database', '%1$d databases', count($databases)), count($databases)) . "</td>";

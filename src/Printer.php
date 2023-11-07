@@ -136,6 +136,7 @@ class Printer extends CommonDBTM
      **/
     public function canUnrecurs()
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $ID = $this->fields['id'];
@@ -249,6 +250,7 @@ class Printer extends CommonDBTM
 
     public function cleanDBonPurge()
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $DB->update(
@@ -299,6 +301,7 @@ class Printer extends CommonDBTM
      **/
     public function getLinkedItems()
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $iterator = $DB->request([
@@ -656,9 +659,9 @@ class Printer extends CommonDBTM
 
         $tab = array_merge($tab, Item_Devices::rawSearchOptionsToAdd(get_class($this)));
 
-        $tab = array_merge($tab, Socket::rawSearchOptionsToAdd(get_class($this)));
+        $tab = array_merge($tab, Socket::rawSearchOptionsToAdd());
 
-        $tab = array_merge($tab, SNMPCredential::rawSearchOptionsToAdd(get_class($this)));
+        $tab = array_merge($tab, SNMPCredential::rawSearchOptionsToAdd());
 
         return $tab;
     }
@@ -679,7 +682,7 @@ class Printer extends CommonDBTM
         ];
 
         $tab[] = [
-            'id'                 => '131',
+            'id'                 => '1431',
             'table'              => 'glpi_computers_items',
             'field'              => 'id',
             'name'               => _x('quantity', 'Number of printers'),
@@ -707,6 +710,7 @@ class Printer extends CommonDBTM
      **/
     public function addOrRestoreFromTrash($name, $manufacturer, $entity, $comment = '')
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
        //Look for the software by his name in GLPI for a specific entity
@@ -752,6 +756,7 @@ class Printer extends CommonDBTM
      **/
     public function addPrinter($name, $manufacturer, $entity, $comment = '')
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $manufacturer_id = 0;

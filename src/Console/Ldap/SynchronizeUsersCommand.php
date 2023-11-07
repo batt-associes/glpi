@@ -65,6 +65,7 @@ class SynchronizeUsersCommand extends AbstractCommand
     protected function configure()
     {
 
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         parent::configure();
@@ -84,7 +85,7 @@ class SynchronizeUsersCommand extends AbstractCommand
             'only-update-existing',
             'u',
             InputOption::VALUE_NONE,
-            __('Only update existing users')
+            __('Only update existing users (will not handle deleted users)')
         );
 
         $this->addOption(
@@ -171,6 +172,7 @@ class SynchronizeUsersCommand extends AbstractCommand
     protected function execute(InputInterface $input, OutputInterface $output)
     {
 
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $this->validateInput($input);

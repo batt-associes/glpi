@@ -346,6 +346,7 @@ class ITILCategory extends CommonTreeDropdown
      **/
     private static function getITILCategoryIDByField($field, $value)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $iterator = $DB->request([
@@ -385,7 +386,9 @@ class ITILCategory extends CommonTreeDropdown
     {
         $input = parent::prepareInputForUpdate($input);
 
-        $input['code'] = isset($input['code']) ? trim($input['code']) : '';
+        if (isset($input['code'])) {
+            $input['code'] = trim($input['code']);
+        }
         if (
             !empty($input["code"])
             && !in_array(ITILCategory::getITILCategoryIDByCode($input["code"]), [$input['id'],-1])
@@ -435,7 +438,11 @@ class ITILCategory extends CommonTreeDropdown
      **/
     public static function showForITILTemplate(ITILTemplate $tt, $withtemplate = 0)
     {
-        global $DB, $CFG_GLPI;
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
+        global $CFG_GLPI, $DB;
 
         $itilcategory = new self();
         $ID           = $tt->fields['id'];

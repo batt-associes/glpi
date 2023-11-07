@@ -143,6 +143,7 @@ class Peripheral extends CommonDBTM
      **/
     public function getLinkedItems()
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $iterator = $DB->request([
@@ -370,7 +371,7 @@ class Peripheral extends CommonDBTM
 
         $tab = array_merge($tab, Rack::rawSearchOptionsToAdd(get_class($this)));
 
-        $tab = array_merge($tab, Socket::rawSearchOptionsToAdd(get_class($this)));
+        $tab = array_merge($tab, Socket::rawSearchOptionsToAdd());
         return $tab;
     }
 
@@ -389,7 +390,7 @@ class Peripheral extends CommonDBTM
         ];
 
         $tab[] = [
-            'id'                 => '130',
+            'id'                 => '1430',
             'table'              => 'glpi_computers_items',
             'field'              => 'id',
             'name'               => _x('quantity', 'Number of peripherals'),

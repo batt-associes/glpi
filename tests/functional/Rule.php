@@ -195,7 +195,7 @@ class Rule extends DbTestCase
     public function testGetSearchOptionsNew()
     {
         $rule = new \Rule();
-        $this->array($rule->rawSearchOptions())->hasSize(11);
+        $this->array($rule->rawSearchOptions())->hasSize(12);
     }
 
     public function testGetRuleWithCriteriasAndActions()
@@ -604,6 +604,28 @@ class Rule extends DbTestCase
                 )
             )->isIdenticalTo($expected);
         }
+
+        //rename rule with a quote, then clone
+        $rules_id = $cloned;
+        $rule = new \RuleAsset(); //needed to reset last_clone_index...
+        $this->boolean($rule->update(['id' => $rules_id, 'name' => addslashes("User's assigned")]))->isTrue();
+        $this->boolean($rule->getFromDB($rules_id))->isTrue();
+
+        $cloned = $rule->clone();
+        $this->integer($cloned)->isGreaterThan($rules_id);
+        $this->boolean($rule->getFromDB($cloned))->isTrue();
+
+        $this->integer($rule->fields['is_active'])->isIdenticalTo(0);
+        $this->string($rule->fields['name'])->isIdenticalTo("User's assigned (copy)");
+
+        foreach ($relations as $relation => $expected) {
+            $this->integer(
+                countElementsInTable(
+                    $relation::getTable(),
+                    ['rules_id' => $cloned]
+                )
+            )->isIdenticalTo($expected);
+        }
     }
 
     public function testRanking()
@@ -621,6 +643,29 @@ class Rule extends DbTestCase
 
         $second_rule = new \RuleSoftwareCategory();
         $add = $second_rule->add([
+            'sub_type'  => 'RuleSoftwareCategory',
+            'name'      => 'my other test rule'
+        ]);
+        $this->integer($add)->isGreaterThan(0);
+        $second_rule = new \RuleSoftwareCategory();
+        $this->boolean($second_rule->getFromDB($add))->isTrue();
+        $this->integer($second_rule->fields['ranking'])->isGreaterThan($first_rule->fields['ranking']);
+    }
+
+    public function testRankingFromBaseRuleClass()
+    {
+        $rule = new \Rule();
+        // create a software rule
+        $add = $rule->add([
+            'sub_type'  => 'RuleSoftwareCategory',
+            'name'      => 'my test rule'
+        ]);
+        $this->integer($add)->isGreaterThan(0);
+        $first_rule = new \RuleSoftwareCategory();
+        $this->boolean($first_rule->getFromDB($add))->isTrue();
+        $this->integer($first_rule->fields['ranking'])->isGreaterThan(0);
+
+        $add = $rule->add([
             'sub_type'  => 'RuleSoftwareCategory',
             'name'      => 'my other test rule'
         ]);

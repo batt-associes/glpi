@@ -125,7 +125,7 @@ class KnowbaseItemTranslation extends CommonDBChild
                     break;
 
                 case 3:
-                    $item->showForm($item->getID());
+                    $item->showForm($item->getID(), ['parent' => $item]);
                     break;
             }
         } else if (self::canBeTranslated($item)) {
@@ -143,6 +143,7 @@ class KnowbaseItemTranslation extends CommonDBChild
      **/
     public function showFull($options = [])
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         if (!$this->can($this->fields['id'], READ)) {
@@ -185,6 +186,7 @@ class KnowbaseItemTranslation extends CommonDBChild
      **/
     public static function showTranslations(KnowbaseItem $item)
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $canedit = $item->can($item->getID(), UPDATE);
@@ -277,15 +279,17 @@ class KnowbaseItemTranslation extends CommonDBChild
      */
     public function showForm($ID = -1, array $options = [])
     {
-        if (isset($options['parent']) && !empty($options['parent'])) {
-            $item = $options['parent'];
+        if (!($ID > 0) && !isset($options['parent']) || !($options['parent'] instanceof CommonDBTM)) {
+            // parent is mandatory in new item form
+            trigger_error('Parent item must be defined in `$options["parent"]`.', E_USER_WARNING);
+            return false;
         }
         if ($ID > 0) {
             $this->check($ID, READ);
         } else {
            // Create item
-            $options['itemtype']         = get_class($item);
-            $options['knowbaseitems_id'] = $item->getID();
+            $options['itemtype']         = get_class($options['parent']);
+            $options['knowbaseitems_id'] = $options['parent']->getID();
             $this->check(-1, CREATE, $options);
         }
         $this->showFormHeader($options);
@@ -301,7 +305,7 @@ class KnowbaseItemTranslation extends CommonDBChild
                 "language",
                 ['display_none' => false,
                     'value'        => $_SESSION['glpilanguage'],
-                    'used'         => self::getAlreadyTranslatedForItem($item)
+                    'used'         => self::getAlreadyTranslatedForItem($options['parent'])
                 ]
             );
         }
@@ -368,6 +372,7 @@ class KnowbaseItemTranslation extends CommonDBChild
      **/
     public static function isKbTranslationActive()
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         return $CFG_GLPI['translate_kb'];
@@ -417,6 +422,7 @@ class KnowbaseItemTranslation extends CommonDBChild
      **/
     public static function getAlreadyTranslatedForItem($item)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $tab = [];

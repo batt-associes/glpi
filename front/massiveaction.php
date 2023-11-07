@@ -33,6 +33,9 @@
  * ---------------------------------------------------------------------
  */
 
+/** @var array $CFG_GLPI */
+global $CFG_GLPI;
+
 include('../inc/includes.php');
 
 Session::checkLoginUser();
@@ -42,7 +45,7 @@ Html::header_nocache();
 
 try {
     $ma = new MassiveAction($_POST, $_GET, 'process');
-} catch (\Exception $e) {
+} catch (\Throwable $e) {
     Html::popHeader(__('Bulk modification error'), $_SERVER['PHP_SELF']);
 
     echo "<div class='center'><img src='" . $CFG_GLPI["root_doc"] . "/pics/warning.png' alt='" .

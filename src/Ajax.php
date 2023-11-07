@@ -276,6 +276,7 @@ JAVASCRIPT;
         $orientation = 'vertical',
         $options = []
     ) {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         if (count($tabs) === 0) {
@@ -357,10 +358,11 @@ JAVASCRIPT;
             echo  "</div>"; // .tab-content
             echo "</div>"; // .container-fluid
             $js = "
+         var url_hash = window.location.hash;
          var loadTabContents = function (tablink, force_reload = false) {
+            const href_url_params = new URLSearchParams($(tablink).prop('href'));
             var url = tablink.attr('href');
             var target = tablink.attr('data-bs-target');
-            var index = tablink.closest('.nav-item').index();
 
             const updateCurrentTab = () => {
                 $.get(
@@ -368,10 +370,23 @@ JAVASCRIPT;
                   {
                      itemtype: '" . addslashes($type) . "',
                      id: '$ID',
-                     tab: index,
+                     tab_key: href_url_params.get('_glpi_tab'),
                      withtemplate: " . (int)($_GET['withtemplate'] ?? 0) . "
                   }
-               );
+               ).done(function() {
+                    // try to restore the scroll on a specific anchor
+                    if (url_hash.length > 0) {
+                        // as we load content by ajax, when full page was ready, the anchor was not present
+                        // se we recall it to force the scroll.
+                        window.location.href = url_hash;
+
+                        // animate item with a flash
+                        $(url_hash).addClass('animate__animated animate__shakeX animate__slower');
+
+                        // unset hash (to avoid scrolling when changing tabs)
+                        url_hash   = '';
+                    }
+               });
             }
             if ($(target).html() && !force_reload) {
                 updateCurrentTab();

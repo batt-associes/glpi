@@ -101,7 +101,11 @@ class ProjectTaskTemplate extends CommonDropdown
             ],
             ['name'  => 'description',
                 'label' => __('Description'),
-                'type'  => 'tinymce'
+                'type'  => 'tinymce',
+                // Images should remains in base64 in templates.
+                // When an element will be created from a template, tinymce will catch the base64 image and trigger the
+                // document upload process.
+                'convert_images_to_documents' => false,
             ],
             ['name'  => 'comments',
                 'label' => __('Comments'),
@@ -144,7 +148,7 @@ class ProjectTaskTemplate extends CommonDropdown
             'name'     => __('Percent done'),
             'field'    => 'percent_done',
             'table'    => $this->getTable(),
-            'datatype' => 'percent',
+            'datatype' => 'progressbar',
         ];
 
         $tab[] = [
@@ -192,7 +196,7 @@ class ProjectTaskTemplate extends CommonDropdown
             'name'     => __('Planned duration'),
             'field'    => 'planned_duration',
             'table'    => $this->getTable(),
-            'datatype' => 'actiontime',
+            'datatype' => 'timestamp',
         ];
 
         $tab[] = [
@@ -200,7 +204,7 @@ class ProjectTaskTemplate extends CommonDropdown
             'name'     => __('Effective duration'),
             'field'    => 'effective_duration',
             'table'    => $this->getTable(),
-            'datatype' => 'actiontime',
+            'datatype' => 'timestamp',
         ];
 
         $tab[] = [
@@ -208,7 +212,8 @@ class ProjectTaskTemplate extends CommonDropdown
             'name'     => __('Description'),
             'field'    => 'description',
             'table'    => $this->getTable(),
-            'datatype' => 'textarea',
+            'datatype' => 'text',
+            'htmltext' => true,
         ];
 
         return $tab;

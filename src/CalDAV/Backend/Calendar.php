@@ -67,6 +67,7 @@ class Calendar extends AbstractBackend
 
     public function getCalendarsForUser($principalPath)
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $principal_item = $this->getPrincipalItemFromUri($principalPath);
@@ -165,16 +166,21 @@ class Calendar extends AbstractBackend
     public function getCalendarObjects($calendarId)
     {
 
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $principal_type = \Planning::getActorTypeFromPlanningKey($calendarId);
         $principal_id   = \Planning::getActorIdFromPlanningKey($calendarId);
+
+        $item = null;
         if (null !== $principal_type && is_a($principal_type, \CommonDBTM::class, true) && null !== $principal_id) {
             $item = new $principal_type();
-            $exists = $item->getFromDB($principal_id);
+            if ($item->getFromDB($principal_id) === false) {
+                $item = null;
+            }
         }
 
-        if (!$exists) {
+        if ($item === null) {
             throw new \Sabre\DAV\Exception\NotFound(sprintf('Calendar "%s" not found', $calendarId));
         }
 
@@ -297,6 +303,7 @@ class Calendar extends AbstractBackend
     private function storeCalendarObject($calendarId, $calendarData, CalDAVCompatibleItemInterface $item = null)
     {
 
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
        /* @var \Sabre\VObject\Component\VCalendar $vcalendar */

@@ -189,6 +189,7 @@ class MassiveAction
      **/
     public function __construct(array $POST, array $GET, $stage, ?int $items_id = null)
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         if (!empty($POST)) {
@@ -717,6 +718,7 @@ class MassiveAction
      **/
     public static function getAllMassiveActions($item, $is_deleted = 0, CommonDBTM $checkitem = null, ?int $items_id = null)
     {
+        /** @var array $PLUGIN_HOOKS */
         global $PLUGIN_HOOKS;
 
         if (is_string($item)) {
@@ -929,6 +931,10 @@ class MassiveAction
 
     public static function showMassiveActionsSubForm(MassiveAction $ma)
     {
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
         global $CFG_GLPI, $DB;
 
         switch ($ma->getAction()) {
@@ -936,7 +942,7 @@ class MassiveAction
                 if (!isset($ma->POST['id_field'])) {
                     $itemtypes        = array_keys($ma->items);
                     $options_per_type = [];
-                    $options_counts   = [];
+                    $options_count   = [];
                     foreach ($itemtypes as $itemtype) {
                         $options_per_type[$itemtype] = [];
                         $group                       = '';
@@ -997,6 +1003,8 @@ class MassiveAction
                         }
                     }
 
+                    $options = [];
+                    $itemtype_choices = [];
                     if (count($itemtypes) > 1) {
                         $common_options = [];
                         foreach ($options_count as $field => $users) {
@@ -1420,6 +1428,7 @@ class MassiveAction
         CommonDBTM $item,
         array $ids
     ) {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $action = $ma->getAction();
@@ -1524,11 +1533,13 @@ class MassiveAction
                     if (Search::isInfocomOption($item->getType(), $index)) {
                         $ic               = new Infocom();
                         $link_entity_type = -1;
+                        $is_recursive     = 0;
                        /// Specific entity item
                         if ($searchopt[$index]["table"] == "glpi_suppliers") {
                              $ent = new Supplier();
                             if ($ent->getFromDB($input[$input["field"]])) {
                                 $link_entity_type = $ent->fields["entities_id"];
+                                $is_recursive     = $ent->fields["is_recursive"];
                             }
                         }
                         foreach ($ids as $key) {
@@ -1536,7 +1547,7 @@ class MassiveAction
                                 if (
                                     ($link_entity_type < 0)
                                     || ($link_entity_type == $item->getEntityID())
-                                    || ($ent->fields["is_recursive"]
+                                    || ($is_recursive
                                     && in_array(
                                         $link_entity_type,
                                         getAncestorsOf(

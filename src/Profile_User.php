@@ -33,6 +33,8 @@
  * ---------------------------------------------------------------------
  */
 
+use Glpi\Toolbox\Sanitizer;
+
 /**
  * Profile_User Class
  **/
@@ -49,15 +51,8 @@ class Profile_User extends CommonDBRelation
     public static $items_id_2                    = 'profiles_id';
     public static $checkItem_2_Rights            = self::DONT_CHECK_ITEM_RIGHTS;
 
-   // Specific log system
-    public static $logs_for_item_2               = false;
-    public static $logs_for_item_1               = true;
-    public static $log_history_1_add             = Log::HISTORY_ADD_SUBITEM;
-    public static $log_history_1_delete          = Log::HISTORY_DELETE_SUBITEM;
-
    // Manage Entity properties forwarding
     public static $disableAutoEntityForwarding   = true;
-
 
     /**
      * @since 0.84
@@ -278,6 +273,7 @@ class Profile_User extends CommonDBRelation
      **/
     public static function showForEntity(Entity $entity)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $ID = $entity->getField('id');
@@ -469,6 +465,7 @@ class Profile_User extends CommonDBRelation
      **/
     public static function showForProfile(Profile $prof)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $ID      = $prof->fields['id'];
@@ -660,6 +657,7 @@ class Profile_User extends CommonDBRelation
      **/
     public static function getUserEntities($user_ID, $is_recursive = true, $default_first = false)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $iterator = $DB->request([
@@ -669,7 +667,7 @@ class Profile_User extends CommonDBRelation
             ],
             'DISTINCT'        => true,
             'FROM'            => 'glpi_profiles_users',
-            'WHERE'           => ['users_id' => $user_ID]
+            'WHERE'           => ['users_id' => (int)$user_ID]
         ]);
         $entities = [];
 
@@ -682,10 +680,10 @@ class Profile_User extends CommonDBRelation
             }
         }
 
-       // Set default user entity at the begin
+       // Set default user entity at the beginning
         if ($default_first) {
             $user = new User();
-            if ($user->getFromDB($user_ID)) {
+            if ($user->getFromDB((int)$user_ID)) {
                 $ent = $user->getField('entities_id');
                 if (in_array($ent, $entities)) {
                     array_unshift($entities, $ent);
@@ -713,6 +711,7 @@ class Profile_User extends CommonDBRelation
      **/
     public static function getUserEntitiesForRight($user_ID, $rightname, $rights, $is_recursive = true)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $putable = Profile_User::getTable();
@@ -740,7 +739,7 @@ class Profile_User extends CommonDBRelation
                 ]
             ],
             'WHERE'           => [
-                "$putable.users_id"  => $user_ID,
+                "$putable.users_id"  => (int)$user_ID,
                 "$prtable.name"      => $rightname,
                 "$prtable.rights"    => ['&', $rights]
             ]
@@ -777,11 +776,12 @@ class Profile_User extends CommonDBRelation
      **/
     public static function getUserProfiles($user_ID, $sqlfilter = [])
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $profiles = [];
 
-        $where = ['users_id' => $user_ID];
+        $where = ['users_id' => (int)$user_ID];
         if (count($sqlfilter) > 0) {
             $where = $where + $sqlfilter;
         }
@@ -813,14 +813,15 @@ class Profile_User extends CommonDBRelation
      **/
     public static function getEntitiesForProfileByUser($users_id, $profiles_id, $child = false)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $iterator = $DB->request([
             'SELECT' => ['entities_id', 'is_recursive'],
             'FROM'   => self::getTable(),
             'WHERE'  => [
-                'users_id'     => $users_id,
-                'profiles_id'  => $profiles_id
+                'users_id'     => (int)$users_id,
+                'profiles_id'  => (int)$profiles_id
             ]
         ]);
 
@@ -854,12 +855,13 @@ class Profile_User extends CommonDBRelation
      **/
     public static function getEntitiesForUser($users_id, $child = false)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $iterator = $DB->request([
             'SELECT' => ['entities_id', 'is_recursive'],
             'FROM'   => 'glpi_profiles_users',
-            'WHERE'  => ['users_id' => $users_id]
+            'WHERE'  => ['users_id' => (int)$users_id]
         ]);
 
         $entities = [];
@@ -889,7 +891,7 @@ class Profile_User extends CommonDBRelation
      **/
     public static function getForUser($user_ID, $only_dynamic = false)
     {
-        $condition = ['users_id' => $user_ID];
+        $condition = ['users_id' => (int)$user_ID];
 
         if ($only_dynamic) {
             $condition['is_dynamic'] = 1;
@@ -905,14 +907,15 @@ class Profile_User extends CommonDBRelation
      **/
     public static function haveUniqueRight($user_ID, $profile_id)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $result = $DB->request([
             'COUNT'  => 'cpt',
             'FROM'   => self::getTable(),
             'WHERE'  => [
-                'users_id'     => $user_ID,
-                'profiles_id'  => $profile_id
+                'users_id'     => (int)$user_ID,
+                'profiles_id'  => (int)$profile_id
             ]
         ])->current();
         return $result['cpt'];
@@ -927,7 +930,7 @@ class Profile_User extends CommonDBRelation
     {
 
         $crit = [
-            'users_id' => $user_ID,
+            'users_id' => (int)$user_ID,
         ];
 
         if ($only_dynamic) {
@@ -1036,6 +1039,7 @@ class Profile_User extends CommonDBRelation
 
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         if (!$withtemplate) {
@@ -1223,5 +1227,105 @@ class Profile_User extends CommonDBRelation
             count($authorizations_ids) == 1 // Only one super admin auth
             && $authorizations_ids[0] == $this->fields['id'] // Id match this auth
         ;
+    }
+
+    public function post_addItem()
+    {
+        $this->logOperation('add');
+    }
+
+    public function post_deleteFromDB()
+    {
+        $this->logOperation('delete');
+    }
+
+    /**
+     * Log add/delete operation.
+     * @param string $type
+     */
+    private function logOperation(string $type): void
+    {
+        if ((isset($this->input['_no_history']) && $this->input['_no_history'])) {
+            return;
+        }
+
+        $profile_flags = [];
+        if ((bool)$this->fields['is_dynamic']) {
+            //TRANS: letter 'D' for Dynamic
+            $profile_flags[] = __('D');
+        }
+        if ((bool)$this->fields['is_recursive']) {
+            //TRANS: letter 'D' for Dynamic
+            $profile_flags[] = __('R');
+        }
+
+        $user    = User::getById($this->fields['users_id']);
+        $profile = Profile::getById($this->fields['profiles_id']);
+        $entity  = Entity::getById($this->fields['entities_id']);
+
+        $username    = $user->getNameID(['forceid' => true, 'complete' => 1]);
+        $profilename = $profile->getNameID(['forceid' => true, 'complete' => 1]);
+        $entityname  = $entity->getNameID(['forceid' => true, 'complete' => 1]);
+
+        // Log on user
+        if ($user->dohistory) {
+            $log_entry = sprintf(__('%1$s, %2$s'), $entityname, $profilename);
+            if (count($profile_flags) > 0) {
+                $log_entry = sprintf(__('%s (%s)'), $log_entry, implode(', ', $profile_flags));
+            }
+            $log_entry = Sanitizer::dbEscape($log_entry);
+            $changes = [
+                '0',
+                $type === 'delete' ? $log_entry : '',
+                $type === 'add' ? $log_entry : '',
+            ];
+            Log::history(
+                $user->getID(),
+                $user->getType(),
+                $changes,
+                $profile->getType(),
+                constant(sprintf('Log::HISTORY_%s_SUBITEM', strtoupper($type)))
+            );
+        }
+
+        // Log on profile
+        if ($profile->dohistory) {
+            $log_entry = sprintf(__('%1$s, %2$s'), $username, $entityname);
+            if (count($profile_flags) > 0) {
+                $log_entry = sprintf(__('%s (%s)'), $log_entry, implode(', ', $profile_flags));
+            }
+            $changes = [
+                '0',
+                $type === 'delete' ? $log_entry : '',
+                $type === 'add' ? $log_entry : '',
+            ];
+            Log::history(
+                $profile->getID(),
+                $profile->getType(),
+                $changes,
+                $user->getType(),
+                constant(sprintf('Log::HISTORY_%s_SUBITEM', strtoupper($type)))
+            );
+        }
+
+        // Log on entity
+        if ($entity->dohistory) {
+            $log_entry = sprintf(__('%1$s, %2$s'), $username, $profilename);
+            if (count($profile_flags) > 0) {
+                $log_entry = sprintf(__('%s (%s)'), $log_entry, implode(', ', $profile_flags));
+            }
+            $changes = [
+                '0',
+                $type === 'delete' ? $log_entry : '',
+                $type === 'add' ? $log_entry : '',
+            ];
+            Log::history(
+                $entity->getID(),
+                $entity->getType(),
+                $changes,
+                $user->getType(),
+                constant(sprintf('Log::HISTORY_%s_SUBITEM', strtoupper($type)))
+            );
+        }
     }
 }

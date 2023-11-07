@@ -154,7 +154,7 @@ class Log extends CommonDBTM
                         && ($val2['rightname'] == $item->fields['name'])
                     ) {
                         $id_search_option = $key2;
-                        $changes          =  [$id_search_option, addslashes($oldval ?? ''), $values[$key]];
+                        $changes          =  [$id_search_option, addslashes($oldval ?? ''), $values[$key] ?? ''];
                     }
                 } else if (
                     ($val2['linkfield'] == $key && $real_type === $item->getType())
@@ -169,7 +169,7 @@ class Log extends CommonDBTM
                             $oldval = CommonTreeDropdown::sanitizeSeparatorInCompletename($oldval);
                             $values[$key] = CommonTreeDropdown::sanitizeSeparatorInCompletename($values[$key]);
                         }
-                        $changes = [$id_search_option, addslashes($oldval ?? ''), $values[$key]];
+                        $changes = [$id_search_option, addslashes($oldval ?? ''), $values[$key] ?? ''];
                     } else {
                        // other cases; link field -> get data from dropdown
                         if ($val2["table"] != 'glpi_auth_tables') {
@@ -217,6 +217,7 @@ class Log extends CommonDBTM
      **/
     public static function history($items_id, $itemtype, $changes, $itemtype_link = '', $linked_action = '0')
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $date_mod = $_SESSION["glpi_currenttime"];
@@ -295,6 +296,7 @@ class Log extends CommonDBTM
      **/
     public static function showForItem(CommonDBTM $item, $withtemplate = 0)
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $itemtype = $item->getType();
@@ -527,6 +529,7 @@ class Log extends CommonDBTM
                             if ($data['id_search_option']) { // Recent record - see CommonITILObject::getSearchOptionsActors()
                                 $as = $SEARCHOPTION[$data['id_search_option']]['name'];
                             } else { // Old record
+                                $is = $isr = $isa = $iso = false;
                                 switch ($data['itemtype_link']) {
                                     case 'Group':
                                         $is = 'isGroup';
@@ -538,10 +541,6 @@ class Log extends CommonDBTM
 
                                     case 'Supplier':
                                         $is = 'isSupplier';
-                                        break;
-
-                                    default:
-                                        $is = $isr = $isa = $iso = false;
                                         break;
                                 }
                                 if ($is) {
@@ -782,6 +781,7 @@ class Log extends CommonDBTM
      **/
     public static function getDistinctUserNamesValuesInItemLog(CommonDBTM $item)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $itemtype = $item->getType();
@@ -823,6 +823,7 @@ class Log extends CommonDBTM
      **/
     public static function getDistinctAffectedFieldValuesInItemLog(CommonDBTM $item)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $itemtype = $item->getType();
@@ -996,6 +997,7 @@ class Log extends CommonDBTM
      **/
     public static function getDistinctLinkedActionValuesInItemLog(CommonDBTM $item)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $itemtype = $item->getType();
@@ -1185,6 +1187,7 @@ class Log extends CommonDBTM
      **/
     public static function convertFiltersValuesToSqlCriteria(array $filters)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $sql_filters = [];
@@ -1281,6 +1284,7 @@ class Log extends CommonDBTM
 
     public static function handleQueue(): void
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $queue = static::$queue;

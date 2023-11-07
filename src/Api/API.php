@@ -144,6 +144,7 @@ abstract class API
      */
     public function initApi()
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
        // Load GLPI configuration
@@ -250,6 +251,7 @@ abstract class API
      */
     protected function initSession($params = [])
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $this->checkAppToken();
@@ -579,6 +581,10 @@ abstract class API
      */
     protected function getItem($itemtype, $id, $params = [])
     {
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
         global $CFG_GLPI, $DB;
 
         $itemtype = $this->handleDepreciation($itemtype);
@@ -1080,6 +1086,7 @@ abstract class API
      */
     protected function getItems($itemtype, $params = [], &$totalcount = 0)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $itemtype = $this->handleDepreciation($itemtype);
@@ -1208,8 +1215,12 @@ abstract class API
                 }
             }
 
-           // make text search
-            foreach ($params['searchText'] as $filter_field => $filter_value) {
+            // ensure search feature is not used to enumerate sensitive fields value
+            $search_values = $params['searchText'];
+            $item::unsetUndisclosedFields($search_values);
+
+            // make text search
+            foreach ($search_values as $filter_field => $filter_value) {
                 if (!empty($filter_value)) {
                     $search_value = Search::makeTextSearch($DB->escape($filter_value));
                     $where .= " AND (" . $DB->quoteName("$table.$filter_field") . " $search_value)";
@@ -1244,14 +1255,14 @@ abstract class API
        // Check if we need to add raw names later on
         $add_keys_names = count($params['add_keys_names']) > 0;
 
-       // build query
+        // build query
         $query = "SELECT DISTINCT " . $DB->quoteName("$table.id") . ",  " . $DB->quoteName("$table.*") . "
                 FROM " . $DB->quoteName($table) . "
                 $join
                 WHERE $where
                 ORDER BY " . $DB->quoteName($params['sort']) . " " . $params['order'] . "
                 LIMIT " . (int)$params['start'] . ", " . (int)$params['list_limit'];
-        if ($result = $DB->query($query)) {
+        if ($result = $DB->doQuery($query)) {
             while ($data = $DB->fetchAssoc($result)) {
                 if ($add_keys_names) {
                     // Insert raw names into the data row
@@ -1272,7 +1283,7 @@ abstract class API
 
        // get result full row counts
         $count_query = "SELECT COUNT(*) FROM {$DB->quoteName($table)} $join WHERE $where";
-        $totalcount = $DB->query($count_query)->fetch_row()[0];
+        $totalcount = $DB->doQuery($count_query)->fetch_row()[0];
 
         if ($params['range'][0] > $totalcount) {
             $this->returnError(
@@ -1429,6 +1440,9 @@ abstract class API
                     $option
                 );
             } else {
+                if (is_string($option)) {
+                    $option = ['name' => $option];
+                }
                 $cleaned_soptions[$sID] = $option;
             }
         }
@@ -1552,6 +1566,7 @@ abstract class API
      */
     protected function searchItems($itemtype, $params = [])
     {
+        /** @var array $DEBUG_SQL */
         global $DEBUG_SQL;
 
         $itemtype = $this->handleDepreciation($itemtype);
@@ -1710,12 +1725,6 @@ abstract class API
             $raw = $row['raw'];
             $id = $raw['id'];
 
-           // keep row itemtype for all asset
-            if ($itemtype == AllAssets::getType()) {
-                $current_id       = $raw['id'];
-                $current_itemtype = $raw['TYPE'];
-            }
-
            // retrive value (and manage multiple values)
             $clean_values = [];
             foreach ($rawdata['data']['cols'] as $col) {
@@ -1742,8 +1751,8 @@ abstract class API
 
            // if all asset, provide type in returned data
             if ($itemtype == AllAssets::getType()) {
-                $current_line['id']       = $current_id;
-                $current_line['itemtype'] = $current_itemtype;
+                $current_line['id']       = $raw['id'];
+                $current_line['itemtype'] = $raw['TYPE'];
             }
 
            // append to final array
@@ -1973,16 +1982,16 @@ abstract class API
                             'message'    => __("You don't have permission to perform this action.")
                         ];
                     } else {
-                     // if parent key not provided in input and present in parameter
-                     // (detected from url for example), try to appent it do input
-                     // This is usefull to have logs in parent (and avoid some warnings in commonDBTM)
+                        // if parent key not provided in input and present in parameter
+                        // (detected from url for example), try to appent it do input
+                        // This is usefull to have logs in parent (and avoid some warnings in commonDBTM)
                         if (
                             isset($params['parent_itemtype'])
                             && isset($params['parent_id'])
                         ) {
-                              $fk_parent = getForeignKeyFieldForItemType($params['parent_itemtype']);
-                            if (!property_exists($input, $fk_parent)) {
-                                $input->$fk_parent = $params['parent_id'];
+                            $fk_parent = getForeignKeyFieldForItemType($params['parent_itemtype']);
+                            if (!property_exists($object, $fk_parent)) {
+                                $object->$fk_parent = $params['parent_id'];
                             }
                         }
 
@@ -2150,6 +2159,7 @@ abstract class API
      */
     protected function lostPassword($params = [])
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         if ($CFG_GLPI['use_notifications'] == '0' || $CFG_GLPI['notifications_mailing'] == '0') {
@@ -2346,6 +2356,7 @@ abstract class API
      */
     private function getGlpiLastMessage()
     {
+        /** @var array $DEBUG_SQL */
         global $DEBUG_SQL;
 
         $all_messages             = [];
@@ -2543,6 +2554,7 @@ abstract class API
      */
     public static function getHatoasClasses($itemtype)
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $hclasses = [];
@@ -2874,6 +2886,7 @@ abstract class API
         int $id,
         string $itemtype
     ): array {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $_networkports = [];
@@ -3338,12 +3351,14 @@ abstract class API
 
         if ($results['ok'] == 0 && $results['noaction'] == 0 && $results['ko'] == 0 && $results['noright'] == 0) {
            // No items were processed, invalid action key -> 400
-            $this->returnError(
+            return $this->returnError(
                 "Invalid action key parameter, run 'getMassiveActions' endpoint to see available keys",
                 400,
                 "ERROR_MASSIVEACTION_KEY"
             );
-        } else if ($results['ok'] > 0 && $results['ko'] == 0) {
+        }
+
+        if ($results['ok'] > 0 && $results['ko'] == 0) {
            // Success -> 200
             $code = 200;
         } else if ($results['ko'] > 0 && $results['ok'] > 0) {

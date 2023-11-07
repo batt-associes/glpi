@@ -40,6 +40,10 @@
  **/
 function update0901to0905()
 {
+    /**
+     * @var \DBmysql $DB
+     * @var \Migration $migration
+     */
     global $DB, $migration;
 
     $updateresult     = true;
@@ -71,7 +75,7 @@ function update0901to0905()
 
    // fix https://github.com/glpi-project/glpi/issues/820
    // remove empty suppliers in tickets
-    $DB->delete("glpi_suppliers_tickets", [
+    $DB->deleteOrDie("glpi_suppliers_tickets", [
         'suppliers_id'       => 0,
         'alternative_email'  => ""
     ]);

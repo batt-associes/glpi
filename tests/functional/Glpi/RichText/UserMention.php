@@ -62,6 +62,7 @@ class UserMention extends DbTestCase
         $notification_targets->deleteByCriteria(['NOT' => ['items_id' => Notification::MENTIONNED_USER]]);
 
        // Add email to users for notifications
+        $this->login(); // must be authenticated to update emails
         $user = new User();
         $update = $user->update(['id' => $tech_id, '_useremails' => ['tech@glpi-project.org']]);
         $this->boolean($update)->isTrue();
@@ -165,6 +166,7 @@ HTML
                     // Created content => no notification to private users
                         'add_content'            => <<<HTML
                      <p>Hi <span data-user-mention="true" data-user-id="{$tech_id}">@tech</span>,</p>
+                     <br>
                      <p>I discussed with <span data-user-id="{$normal_id}" data-user-mention="true">@normal</span> about ...</p>
 HTML
                   ,
@@ -303,6 +305,7 @@ HTML
         $notification_targets->deleteByCriteria(['NOT' => ['items_id' => Notification::MENTIONNED_USER]]);
 
        // Add email to users for notifications
+        $this->login(); // must be authenticated to update emails
         $user = new User();
         $update = $user->update(['id' => $tech_id, '_useremails' => ['tech@glpi-project.org']]);
         $this->boolean($update)->isTrue();
@@ -557,7 +560,7 @@ HTML
         $notification = new Notification();
         $id = $notification->add(
             [
-                'name'        => 'New user mentionned',
+                'name'        => 'New user mentioned',
                 'entities_id' => 0,
                 'itemtype'    => $itemtype,
                 'event'       => 'user_mention',
@@ -569,7 +572,7 @@ HTML
         $template = new NotificationTemplate();
         $template_id = $template->add(
             [
-                'name'     => 'New user mentionned',
+                'name'     => 'New user mentioned',
                 'itemtype' => $itemtype,
             ]
         );

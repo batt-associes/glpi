@@ -197,14 +197,14 @@ class DatabaseSchemaIntegrityChecker
     {
         $effective_create_table_sql = $this->getEffectiveCreateTableSql($table_name);
 
-        $proper_create_table_sql    = $this->getNomalizedSql($proper_create_table_sql);
-        $effective_create_table_sql = $this->getNomalizedSql($effective_create_table_sql);
+        $proper_create_table_sql    = $this->getNormalizedSql($proper_create_table_sql);
+        $effective_create_table_sql = $this->getNormalizedSql($effective_create_table_sql);
 
         if ($proper_create_table_sql === $effective_create_table_sql) {
             return '';
         }
 
-        return $this->differ->diff(
+        return $this->diff(
             $proper_create_table_sql,
             $effective_create_table_sql
         );
@@ -231,7 +231,7 @@ class DatabaseSchemaIntegrityChecker
         }
 
         $matches = [];
-        preg_match_all('/(?<sql_query>CREATE TABLE[^`]*`(?<table_name>.+)`[^;]+);/', $schema_sql, $matches);
+        preg_match_all('/(?<sql_query>CREATE TABLE[^`]*`(?<table_name>\w+)`.+?);$/ms', $schema_sql, $matches);
         $tables_names             = $matches['table_name'];
         $create_table_sql_queries = $matches['sql_query'];
 
@@ -266,21 +266,21 @@ class DatabaseSchemaIntegrityChecker
         $result = [];
 
         foreach ($schema as $table_name => $create_table_sql) {
-            $create_table_sql = $this->getNomalizedSql($create_table_sql);
+            $create_table_sql = $this->getNormalizedSql($create_table_sql);
 
             if (!$this->db->tableExists($table_name)) {
                 $result[$table_name] = [
                     'type' => self::RESULT_TYPE_MISSING_TABLE,
-                    'diff' => $this->differ->diff($create_table_sql, '')
+                    'diff' => $this->diff($create_table_sql, '')
                 ];
                 continue;
             }
 
-            $effective_create_table_sql = $this->getNomalizedSql($this->getEffectiveCreateTableSql($table_name));
+            $effective_create_table_sql = $this->getNormalizedSql($this->getEffectiveCreateTableSql($table_name));
             if ($create_table_sql !== $effective_create_table_sql) {
                 $result[$table_name] = [
                     'type' => self::RESULT_TYPE_ALTERED_TABLE,
-                    'diff' => $this->differ->diff($create_table_sql, $effective_create_table_sql)
+                    'diff' => $this->diff($create_table_sql, $effective_create_table_sql)
                 ];
             }
         }
@@ -311,10 +311,10 @@ class DatabaseSchemaIntegrityChecker
             $unknown_table_iterator = $is_context_valid ? $this->db->listTables('glpi\_%', $unknown_tables_criteria) : [];
             foreach ($unknown_table_iterator as $unknown_table_data) {
                 $table_name = $unknown_table_data['TABLE_NAME'];
-                $effective_create_table_sql = $this->getNomalizedSql($this->getEffectiveCreateTableSql($table_name));
+                $effective_create_table_sql = $this->getNormalizedSql($this->getEffectiveCreateTableSql($table_name));
                 $result[$table_name] = [
                     'type' => self::RESULT_TYPE_UNKNOWN_TABLE,
-                    'diff' => $this->differ->diff('', $effective_create_table_sql)
+                    'diff' => $this->diff('', $effective_create_table_sql)
                 ];
             }
         }
@@ -358,9 +358,9 @@ class DatabaseSchemaIntegrityChecker
      */
     protected function getEffectiveCreateTableSql(string $table_name): string
     {
-        if (($create_table_res = $this->db->query('SHOW CREATE TABLE ' . $this->db->quoteName($table_name))) === false) {
+        if (($create_table_res = $this->db->doQuery('SHOW CREATE TABLE ' . $this->db->quoteName($table_name))) === false) {
             if ($this->db->errno() == 1146) {
-                return ''; // Table does not exists, effective create table is empty (will output full proper query as diff).
+                return ''; // Table does not exist, effective create table is empty (will output full proper query as diff).
             }
             throw new \Exception(sprintf('Unable to get table "%s" structure', $table_name));
         }
@@ -375,7 +375,7 @@ class DatabaseSchemaIntegrityChecker
      *
      * @return string
      */
-    protected function getNomalizedSql(string $create_table_sql): string
+    protected function getNormalizedSql(string $create_table_sql): string
     {
         $cache_key = md5($create_table_sql);
         if (array_key_exists($cache_key, $this->normalized)) {
@@ -722,6 +722,24 @@ class DatabaseSchemaIntegrityChecker
     }
 
     /**
+     * Generate diff between proper and effective `CREATE TABLE` SQL string.
+     */
+    private function diff(string $proper_create_table_sql, string $effective_create_table_sql): string
+    {
+        $diff = $this->differ->diff(
+            $proper_create_table_sql,
+            $effective_create_table_sql
+        );
+
+        if (!$this->db->allow_signed_keys) {
+            // Add `unsigned` to primary/foreign keys on lines preceded by a `-` (i.e. expected but not found in DB).
+            $diff = preg_replace('/^-\s+(`id`|`.+_id(_.+)?`)\s+int(?!\s+unsigned)/im', '$0 unsigned', $diff);
+        }
+
+        return $diff;
+    }
+
+    /**
      * Get schema file path for given version.
      *
      * @param string|null $schema_version   Installed schema version
@@ -781,19 +799,42 @@ class DatabaseSchemaIntegrityChecker
      */
     private function getDbVersion(): ?string
     {
-        if (
-            $this->db_version === null
-            && $this->db->tableExists('glpi_configs') && $this->db->fieldExists('glpi_configs', 'context')
-        ) {
-            $this->db_version = $this->db->request(
-                [
-                    'FROM'   => 'glpi_configs',
-                    'WHERE'  => [
-                        'context' => 'core',
-                        'name'    => 'dbversion',
+        if ($this->db_version === null) {
+            if ($this->db->tableExists('glpi_configs') && $this->db->fieldExists('glpi_configs', 'context')) {
+                $dbversion_result = $this->db->request(
+                    [
+                        'FROM'   => 'glpi_configs',
+                        'WHERE'  => [
+                            'context' => 'core',
+                            'name'    => 'dbversion',
+                        ]
                     ]
-                ]
-            )->current()['value'] ?? null;
+                );
+                if ($dbversion_result->count() > 0) {
+                    // GLPI >= 9.2
+                    $this->db_version = $dbversion_result->current()['value'];
+                } else {
+                    // GLPI >= 0.85
+                    $dbversion_result = $this->db->request(
+                        [
+                            'FROM'   => 'glpi_configs',
+                            'WHERE'  => [
+                                'context' => 'core',
+                                'name'    => 'version',
+                            ]
+                        ]
+                    );
+                    $this->db_version = $dbversion_result->current()['value'] ?? null;
+                }
+            } elseif ($this->db->tableExists('glpi_configs') && $this->db->fieldExists('glpi_configs', 'version')) {
+                // GLPI < 0.85
+                $this->db_version = $this->db->request(
+                    [
+                        'SELECT' => ['version'],
+                        'FROM'   => 'glpi_configs',
+                    ]
+                )->current()['version'] ?? null;
+            }
         }
 
         return $this->db_version;

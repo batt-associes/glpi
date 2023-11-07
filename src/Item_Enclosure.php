@@ -60,7 +60,7 @@ class Item_Enclosure extends CommonDBRelation
 
     public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0)
     {
-        self::showItems($item, $withtemplate);
+        self::showItems($item);
         return true;
     }
 
@@ -71,6 +71,7 @@ class Item_Enclosure extends CommonDBRelation
      **/
     public static function showItems(Enclosure $enclosure)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $ID = $enclosure->getID();
@@ -171,7 +172,11 @@ class Item_Enclosure extends CommonDBRelation
 
     public function showForm($ID, array $options = [])
     {
-        global $DB, $CFG_GLPI;
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
+        global $CFG_GLPI, $DB;
 
         echo "<div class='center'>";
 

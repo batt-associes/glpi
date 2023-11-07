@@ -215,6 +215,7 @@ class Rule extends CommonDBTM
      **/
     public static function getMenuContent()
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $menu = [];
@@ -585,7 +586,15 @@ class Rule extends CommonDBTM
      **/
     public function getCollectionClassName()
     {
-        return $this->getType() . 'Collection';
+        $parent = static::class;
+        do {
+            $collection_class = $parent . 'Collection';
+            $parent = get_parent_class($parent);
+        } while ($parent !== 'CommonDBTM' && $parent !== false && !class_exists($collection_class));
+        if ($collection_class === null) {
+            throw new \LogicException(sprintf('Unable to find collection class for `%s`.', static::getType()));
+        }
+        return $collection_class;
     }
 
 
@@ -783,6 +792,14 @@ class Rule extends CommonDBTM
         ];
 
         $tab[] = [
+            'id'                 => '122',
+            'table'              => $this->getTable(),
+            'field'              => 'sub_type',
+            'name'               => __('Subtype'),
+            'datatype'           => 'text'
+        ];
+
+        $tab[] = [
             'id'                 => '80',
             'table'              => 'glpi_entities',
             'field'              => 'completename',
@@ -904,6 +921,7 @@ class Rule extends CommonDBTM
      **/
     public function showForm($ID, array $options = [])
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
         if (!$this->isNewID($ID)) {
             $this->check($ID, READ);
@@ -1039,7 +1057,7 @@ class Rule extends CommonDBTM
         if ($ID == "") {
             return $this->getEmpty();
         }
-        if ($ret = $this->getFromDB($ID)) {
+        if ($this->getFromDB($ID)) {
             if (
                 $withactions
                 && ($RuleAction = getItemForItemtype($this->ruleactionclass))
@@ -1105,6 +1123,7 @@ class Rule extends CommonDBTM
      **/
     public function showActionsList($rules_id, $options = [])
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $rand = mt_rand();
@@ -1222,6 +1241,7 @@ class Rule extends CommonDBTM
      **/
     public function showCriteriasList($rules_id, $options = [])
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $rand = mt_rand();
@@ -1821,6 +1841,7 @@ class Rule extends CommonDBTM
      **/
     public function prepareAllInputDataForProcess($input, $params)
     {
+        /** @var array $PLUGIN_HOOKS */
         global $PLUGIN_HOOKS;
 
         $input = $this->prepareInputDataForProcess($input, $params);
@@ -1864,6 +1885,7 @@ class Rule extends CommonDBTM
      */
     public function executePluginsActions($action, $output, $params, array $input = [])
     {
+        /** @var array $PLUGIN_HOOKS */
         global $PLUGIN_HOOKS;
 
         if (isset($PLUGIN_HOOKS['use_rules'])) {
@@ -2083,9 +2105,6 @@ class Rule extends CommonDBTM
      **/
     public function prepareInputForAdd($input)
     {
-
-       // Before adding, add the ranking of the new rule
-        $input["ranking"] = $input['ranking'] ?? $this->getNextRanking();
        //If no uuid given, generate a new one
         if (!isset($input['uuid'])) {
             $input["uuid"] = self::getUuid();
@@ -2108,21 +2127,26 @@ class Rule extends CommonDBTM
             );
         }
 
+        // Before adding, add the ranking of the new rule
+        $input["ranking"] = $input['ranking'] ?? $this->getNextRanking($input['sub_type']);
+
         return $input;
     }
 
 
     /**
      * Get the next ranking for a specified rule
+     * @param string|null $sub_type Specific class for the rule. Defaults to the current class at runtime.
      **/
-    public function getNextRanking()
+    public function getNextRanking(?string $sub_type = null)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $iterator = $DB->request([
             'SELECT' => ['MAX' => 'ranking AS rank'],
             'FROM'   => self::getTable(),
-            'WHERE'  => ['sub_type' => $this->getType()]
+            'WHERE'  => ['sub_type' => $sub_type ?? static::class]
         ]);
 
         if (count($iterator)) {
@@ -2142,6 +2166,7 @@ class Rule extends CommonDBTM
      **/
     public function showMinimalActionForm($fields, $canedit, $rand)
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $edit = ($canedit ? "style='cursor:pointer' onClick=\"viewEditAction" .
@@ -2272,6 +2297,7 @@ class Rule extends CommonDBTM
      **/
     public function showMinimalCriteriaForm($fields, $canedit, $rand)
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $edit = ($canedit ? "style='cursor:pointer' onClick=\"viewEditCriteria" .
@@ -2332,7 +2358,7 @@ class Rule extends CommonDBTM
         return [
             'criterion' => Sanitizer::encodeHtmlSpecialChars(Sanitizer::getVerbatimValue($criterion)),
             'condition' => Sanitizer::encodeHtmlSpecialChars(Sanitizer::getVerbatimValue($condition)),
-            'pattern'   => Sanitizer::encodeHtmlSpecialChars(Sanitizer::getVerbatimValue($pattern)),
+            'pattern'   => Sanitizer::encodeHtmlSpecialChars(Sanitizer::getVerbatimValue($pattern ?? '')),
         ];
     }
 
@@ -2489,6 +2515,7 @@ class Rule extends CommonDBTM
      **/
     public function displayCriteriaSelectPattern($name, $ID, $condition, $value = "", $test = false)
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $crit    = $this->getCriteria($ID);
@@ -2848,6 +2875,7 @@ class Rule extends CommonDBTM
      **/
     public function preProcessPreviewResults($output)
     {
+        /** @var array $PLUGIN_HOOKS */
         global $PLUGIN_HOOKS;
 
         if (isset($PLUGIN_HOOKS['use_rules'])) {
@@ -2949,12 +2977,17 @@ class Rule extends CommonDBTM
 
     public function getActions()
     {
-        return [
-            '_stop_rules_processing' => [
+        $actions = [];
+        $collection_class = $this->getCollectionClassName();
+        /** @var RuleCollection $collection */
+        $collection = new $collection_class();
+        if (!$collection->stop_on_first_match) {
+            $actions['_stop_rules_processing'] = [
                 'name' => __('Skip remaining rules'),
                 'type' => 'yesonly',
-            ]
-        ];
+            ];
+        }
+        return $actions;
     }
 
 
@@ -2971,6 +3004,7 @@ class Rule extends CommonDBTM
      **/
     public static function doHookAndMergeResults($hook, $params = [], $itemtype = '')
     {
+        /** @var array $PLUGIN_HOOKS */
         global $PLUGIN_HOOKS;
 
         if (empty($itemtype)) {
@@ -3022,6 +3056,7 @@ class Rule extends CommonDBTM
      **/
     public function getRulesForCriteria($crit)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $rules = [];
@@ -3265,6 +3300,7 @@ class Rule extends CommonDBTM
         $valfield,
         $fieldfield
     ) {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $fieldid = getForeignKeyFieldForTable($ruleitem->getTable());
@@ -3552,8 +3588,6 @@ class Rule extends CommonDBTM
         $input['ranking']     = $nextRanking;
         $input['uuid']        = static::getUuid();
 
-        $input = Toolbox::addslashes_deep($input);
-
         return $input;
     }
 
@@ -3596,6 +3630,7 @@ class Rule extends CommonDBTM
 
         $ranking_increment = 0;
         if ($reset === false) {
+            /** @var \DBmysql $DB */
             global $DB;
             $ranking_increment = $DB->request([
                 'SELECT' => ['MAX' => 'ranking AS rank'],

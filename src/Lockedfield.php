@@ -53,6 +53,11 @@ class Lockedfield extends CommonDBTM
         return _n('Locked field', 'Locked fields', $nb);
     }
 
+    public static function canView()
+    {
+        return self::canUpdate();
+    }
+
     public static function canPurge()
     {
         return Session::haveRight(self::$rightname, UPDATE);
@@ -158,6 +163,40 @@ class Lockedfield extends CommonDBTM
         return $this->getLocks($itemtype, $items_id, false);
     }
 
+
+    /**
+     * Get locked fields
+     *
+     * @param string  $itemtype Item type
+     * @param integer $items_id Item ID
+     *
+     * return array
+     */
+    final public function getFullLockedFields($itemtype, $items_id): array
+    {
+        /** @var \DBmysql $DB */
+        global $DB;
+
+        $iterator = $DB->request([
+            'FROM'   => $this->getTable(),
+            'WHERE'  => [
+                'itemtype'  => $itemtype,
+                [
+                    'OR' => [
+                        'items_id'  => $items_id,
+                        'is_global' => 1
+                    ]
+                ]
+            ]
+        ]);
+
+        $locks = [];
+        foreach ($iterator as $row) {
+            $locks[$row['id']] = $row;
+        }
+        return $locks;
+    }
+
     /**
      * Get locked fields
      *
@@ -168,6 +207,7 @@ class Lockedfield extends CommonDBTM
      */
     public function getLocks($itemtype, $items_id, bool $fields_only = true)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $iterator = $DB->request([
@@ -201,6 +241,7 @@ class Lockedfield extends CommonDBTM
      */
     public function itemDeleted()
     {
+        /** @var \DBmysql $DB */
         global $DB;
         return $DB->delete(
             $this->getTable(),
@@ -218,6 +259,7 @@ class Lockedfield extends CommonDBTM
      */
     public function setLastValue($itemtype, $items_id, $field, $value)
     {
+        /** @var \DBmysql $DB */
         global $DB;
         return $DB->update(
             $this->getTable(),
@@ -301,6 +343,10 @@ class Lockedfield extends CommonDBTM
      */
     public function getFieldsToLock(string $specific_itemtype = null): array
     {
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
         global $CFG_GLPI, $DB;
 
         $iterator = $DB->request([

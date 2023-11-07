@@ -220,6 +220,7 @@ JAVASCRIPT
      */
     private static function showForItem(CommonDBTM $item): void
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         if (!self::canView() || $item->isNewItem()) {
@@ -357,6 +358,10 @@ JAVASCRIPT
      */
     private static function getLinkHtml(array $fields): string
     {
+
+        if (empty($fields['url'])) {
+            return '';
+        }
 
         $html = '';
 

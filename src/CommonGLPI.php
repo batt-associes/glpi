@@ -322,6 +322,7 @@ class CommonGLPI implements CommonGLPIInterface
      **/
     final public function defineAllTabs($options = [])
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $onglets = [];
@@ -405,6 +406,7 @@ class CommonGLPI implements CommonGLPIInterface
      **/
     public function addImpactTab(array &$ong, array $options)
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
        // Check if impact analysis is enabled for this item type
@@ -507,6 +509,7 @@ class CommonGLPI implements CommonGLPIInterface
             $newmenu['is_multi_entries'] = true;
             $menu = $newmenu;
         }
+
         if (count($menu)) {
             return $menu;
         }
@@ -686,7 +689,9 @@ class CommonGLPI implements CommonGLPIInterface
                     $options['tabnum'] = $tabnum;
                     $options['itemtype'] = $itemtype;
                     Plugin::doHook(Hooks::PRE_SHOW_TAB, [ 'item' => $item, 'options' => &$options]);
+                    \Glpi\Debug\Profiler::getInstance()->start(get_class($obj) . '::displayTabContentForItem');
                     $ret = $obj->displayTabContentForItem($item, $tabnum, $withtemplate);
+                    \Glpi\Debug\Profiler::getInstance()->stop(get_class($obj) . '::displayTabContentForItem');
 
                     Plugin::doHook(Hooks::POST_SHOW_TAB, ['item' => $item, 'options' => $options]);
                     return $ret;
@@ -724,6 +729,7 @@ class CommonGLPI implements CommonGLPIInterface
      **/
     public function redirectToList()
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         if (
@@ -941,6 +947,7 @@ class CommonGLPI implements CommonGLPIInterface
      **/
     public function showNavigationHeader($options = [])
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
        // for objects not in table like central
@@ -1077,7 +1084,7 @@ class CommonGLPI implements CommonGLPIInterface
                 ]);
                 if ($this->isField('is_deleted') && $this->fields['is_deleted']) {
                     $title = $this->isField('date_mod')
-                                ? sprintf(__s('Item has been deleted on %1$s'), Html::convDateTime($this->fields['date_mod']))
+                                ? sprintf(__s('Item has been deleted on %s'), Html::convDateTime($this->fields['date_mod']))
                                 : __s('Deleted');
                     echo "<span class='mx-2 bg-danger status rounded-1' title=\"" . $title . "\"
                         data-bs-toggle='tooltip'>
@@ -1220,6 +1227,7 @@ class CommonGLPI implements CommonGLPIInterface
      **/
     public function showDebugInfo()
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         if (method_exists($this, 'showDebug')) {
@@ -1362,9 +1370,10 @@ class CommonGLPI implements CommonGLPIInterface
      **/
     public static function showDislayOptions($sub_itemtype = '')
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
-        $options      = static::getAvailableDisplayOptions($sub_itemtype);
+        $options      = static::getAvailableDisplayOptions();
 
         if (count($options)) {
             if (empty($sub_itemtype)) {
@@ -1432,6 +1441,7 @@ class CommonGLPI implements CommonGLPIInterface
      **/
     public static function getDisplayOptionsLink($sub_itemtype = '')
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $rand = mt_rand();
@@ -1497,6 +1507,10 @@ class CommonGLPI implements CommonGLPIInterface
      **/
     public function getKBLinks()
     {
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
         global $CFG_GLPI, $DB;
 
         if (!($this instanceof CommonDBTM)) {

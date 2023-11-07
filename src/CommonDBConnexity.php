@@ -112,6 +112,7 @@ abstract class CommonDBConnexity extends CommonDBTM
      **/
     public function cleanDBonItemDelete($itemtype, $items_id)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $criteria = static::getSQLCriteriaToSearchForItem($itemtype, $items_id);
@@ -198,6 +199,7 @@ abstract class CommonDBConnexity extends CommonDBTM
      */
     public static function getItemsAssociationRequest($itemtype, $items_id)
     {
+        /** @var \DBmysql $DB */
         global $DB;
         return $DB->request(static::getSQLCriteriaToSearchForItem($itemtype, $items_id));
     }
@@ -650,6 +652,7 @@ abstract class CommonDBConnexity extends CommonDBTM
                 return true;
 
             case 'affect':
+                $peertype  = null;
                 $peertypes = [];
                 foreach ($itemtypes as $itemtype => $specificities) {
                     if (!$specificities['reaffect']) {
@@ -679,7 +682,7 @@ abstract class CommonDBConnexity extends CommonDBTM
                 if (count($peertypes) == 1) {
                     $options['name']   = 'peers_id';
                     $type_for_dropdown = $peertypes[0];
-                    if (preg_match('/^itemtype/', $peertype)) {
+                    if ($peertype !== null && preg_match('/^itemtype/', $peertype)) {
                         echo Html::hidden('peertype', ['value' => $type_for_dropdown]);
                     }
                     $type_for_dropdown::dropdown($options);

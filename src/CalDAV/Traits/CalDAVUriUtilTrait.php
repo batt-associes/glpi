@@ -113,6 +113,7 @@ trait CalDAVUriUtilTrait
         }
 
         $item  = new $principal_itemtype();
+        $found = false;
         switch ($principal_itemtype) {
             case \Group::class:
                 $found = $item->getFromDB($this->getGroupIdFromPrincipalUri($uri));
@@ -187,6 +188,10 @@ trait CalDAVUriUtilTrait
     protected function getCalendarItemForUid($uid)
     {
 
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
         global $CFG_GLPI, $DB;
 
         $union = new \QueryUnion();

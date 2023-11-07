@@ -237,16 +237,21 @@
                      {% set task_state_lbl %}
                         <i class="fas fa-tasks fa-fw me-1" title="{{ __('Status') }}"></i>
                      {% endset %}
-                     {{ fields.dropdownArrayField('state', subitem.fields['state'], {
-                        0: _n('Information', 'Information', 1),
-                        1: __('To do'),
-                        2: __('Done')
-                     }, task_state_lbl, {
-                        'full_width': true,
-                        'icon_label': true,
-                        'rand': rand,
-                     }) }}
 
+                     {% set task_state %}
+                        {% do call('Planning::dropdownState', ['state', subitem.fields['state'], true, {'rand': rand}]) %}
+                     {% endset %}
+
+                     {{ fields.htmlField(
+                        'state',
+                        task_state,
+                        task_state_lbl,
+                        {
+                           'full_width': true,
+                           'icon_label': true,
+                           'rand': rand,
+                        }
+                     ) }}
 
                      {% set task_private_lbl %}
                         <i class="ti ti-lock fa-fw me-1" title="{{ __('Private') }}"></i>
@@ -359,7 +364,7 @@
                               rand_group: {{ random() }},
                               itemtype: "{{ subitem.type }}",
                               items_id: {{ subitem.fields['id']|default(-1) }},
-                              parent_itemtype: "{{ item.type }}",
+                              parent_itemtype: "{{ item.getType() }}",
                               parent_items_id: {{ item.fields['id'] }},
                               parent_fk_field: "{{ item.getForeignKeyField() }}",
                               begin: "{{ subitem.fields['begin'] }}",
@@ -398,7 +403,7 @@
                   <span class="d-inline-flex align-items-center" title="{{ __("Set the status to pending") }}"
                         data-bs-toggle="tooltip" data-bs-placement="top" role="button">
                      <i class="fas fa-pause me-2"></i>
-                     <label class="form-check form-switch pt-2">
+                     <label class="form-check form-switch mt-2">
                         <input type="hidden"   name="pending" value="0" />
                         <input type="checkbox" name="pending" value="1" class="form-check-input"
                               id="enable-pending-reasons-{{ rand }}"
@@ -421,9 +426,11 @@
             {% endset %}
 
             {{ call_plugin_hook('post_item_form', {"item": subitem, 'options': params}) }}
-            <div class="d-flex card-footer mx-n3 mb-n3">
+            {# Fixed min-height ensure no height increase when toggling the pending reason button, as select 2 dropdown are a bit higher than the default footer height #}
+            <div class="d-flex card-footer mx-n3 mb-n3 flex-wrap" style="row-gap: 10px; min-height: 79px">
                {% if subitem.fields['id'] <= 0 %}
-                  <div class="input-group">
+                  {# Do not enable flex wrapping when creating a new item as the pending form will be merged with the add button in an input group #}
+                  <div class="input-group flex-nowrap">
                      <button class="btn btn-primary" type="submit" name="add">
                         <i class="fas fa-plus"></i>
                         <span>{{ _x('button', 'Add') }}</span>
@@ -465,9 +472,7 @@
             }).done(function (data) {
                 if (data.content !== undefined) {
                     // set textarea content
-                    if (tasktinymce = tinymce.get("content_{{ rand }}")) {
-                        tasktinymce.setContent(data.content);
-                    }
+                    setRichTextEditorContent("content_{{ rand }}", data.content);
                 }
 
                 if (data.taskcategories_id !== undefined) {

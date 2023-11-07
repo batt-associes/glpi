@@ -352,7 +352,7 @@ class SavedSearch extends CommonDBTM implements ExtraVisibilityCriteria
         $this->fields["users_id"]     = Session::getLoginUserID();
         $this->fields["is_private"]   = 1;
         $this->fields["is_recursive"] = 1;
-        $this->fields["entities_id"]  = $_SESSION["glpiactive_entity"];
+        $this->fields["entities_id"]  = Session::getActiveEntity();
     }
 
 
@@ -656,7 +656,16 @@ class SavedSearch extends CommonDBTM implements ExtraVisibilityCriteria
             return;
         }
 
-        $url = Toolbox::getItemTypeSearchURL($this->fields['itemtype']);
+        $itemtype = $this->fields['itemtype'];
+        $url = $itemtype::getSearchURL();
+
+        // Prevents parameter duplication
+        $parse_url = parse_url($url);
+        if (isset($parse_url['query'])) {
+            parse_str($parse_url['query'], $url_params);
+            $url = $parse_url['path'];
+            $params = array_merge($url_params, $params);
+        }
         $url .= "?" . Toolbox::append_params($params);
 
        // keep last loaded to set an active state on saved search panel
@@ -699,6 +708,7 @@ class SavedSearch extends CommonDBTM implements ExtraVisibilityCriteria
      **/
     public function markDefault($ID)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         if (
@@ -743,6 +753,7 @@ class SavedSearch extends CommonDBTM implements ExtraVisibilityCriteria
      **/
     public function unmarkDefault($ID)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         if (
@@ -779,6 +790,7 @@ class SavedSearch extends CommonDBTM implements ExtraVisibilityCriteria
      **/
     public function unmarkDefaults(array $ids)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         if (Session::haveRight('config', UPDATE)) {
@@ -805,6 +817,7 @@ class SavedSearch extends CommonDBTM implements ExtraVisibilityCriteria
      */
     public function getMine(string $itemtype = null, bool $inverse = false, bool $enable_partial_warnings = true): array
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $searches = [];
@@ -998,6 +1011,7 @@ class SavedSearch extends CommonDBTM implements ExtraVisibilityCriteria
      **/
     public static function getUsedItemtypes()
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $types = [];
@@ -1023,6 +1037,7 @@ class SavedSearch extends CommonDBTM implements ExtraVisibilityCriteria
      **/
     public static function updateExecutionTime($id, $time)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         if ($_SESSION['glpishow_count_on_tabs']) {
@@ -1125,6 +1140,7 @@ class SavedSearch extends CommonDBTM implements ExtraVisibilityCriteria
      */
     public function setDoCount(array $ids, $do_count)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $result = $DB->update(
@@ -1151,6 +1167,7 @@ class SavedSearch extends CommonDBTM implements ExtraVisibilityCriteria
      */
     public function setEntityRecur(array $ids, $eid, $recur)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $result = $DB->update(
@@ -1187,7 +1204,11 @@ class SavedSearch extends CommonDBTM implements ExtraVisibilityCriteria
      **/
     public static function croncountAll($task)
     {
-        global $DB, $CFG_GLPI;
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
+        global $CFG_GLPI, $DB;
 
         $cron_status = 0;
 
@@ -1240,7 +1261,7 @@ class SavedSearch extends CommonDBTM implements ExtraVisibilityCriteria
                               $stmt->bind_param('sss', $execution_time, $now, $row['id']);
                               $DB->executeStatement($stmt);
                         }
-                    } catch (\Exception $e) {
+                    } catch (\Throwable $e) {
                         ErrorHandler::getInstance()->handleException($e);
                     }
                 }
@@ -1273,6 +1294,7 @@ class SavedSearch extends CommonDBTM implements ExtraVisibilityCriteria
      **/
     public function execute($force = false, bool $enable_partial_warnings = true)
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         if (

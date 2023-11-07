@@ -37,6 +37,7 @@ namespace tests\units;
 
 use DbTestCase;
 use Psr\Log\LogLevel;
+use QueryExpression;
 
 // Generic test classe, to be extended for CommonDBTM Object
 
@@ -53,12 +54,20 @@ class DBmysqlIterator extends DbTestCase
     public function testQuery()
     {
         $req = 'SELECT Something FROM Somewhere';
-        $it = $this->it->execute($req);
-        $this->string($it->getSql())->isIdenticalTo($req);
+        $this->when($this->it->execute($req))
+            ->error()
+            ->withType(E_USER_DEPRECATED)
+            ->withMessage('Direct query usage is strongly discouraged!.')
+            ->exists();
+        $this->string($this->it->getSql())->isIdenticalTo($req);
 
         $req = 'SELECT @@sql_mode as mode';
-        $it = $this->it->execute($req);
-        $this->string($it->getSql())->isIdenticalTo($req);
+        $this->when($this->it->execute($req))
+            ->error()
+            ->withType(E_USER_DEPRECATED)
+            ->withMessage('Direct query usage is strongly discouraged!.')
+            ->exists();
+        $this->string($this->it->getSql())->isIdenticalTo($req);
     }
 
 
@@ -67,11 +76,7 @@ class DBmysqlIterator extends DbTestCase
         global $DB;
 
         $expected_error = "Table '{$DB->dbdefault}.fakeTable' doesn't exist";
-        $this->output(
-            function () use ($DB) {
-                $DB->request('fakeTable');
-            }
-        )->contains($expected_error);
+        $DB->request('fakeTable');
         $this->hasSqlLogRecordThatContains($expected_error, LogLevel::ERROR);
     }
 
@@ -95,15 +100,13 @@ class DBmysqlIterator extends DbTestCase
      */
     public function testNoTableWithWhere()
     {
-        $this->when(
+        $this->exception(
             function () {
                 $it = $this->it->execute('', ['foo' => 1]);
                 $this->string($it->getSql())->isIdenticalTo('SELECT * WHERE `foo` = \'1\'');
             }
-        )->error()
-         ->withType(E_USER_ERROR)
-         ->withMessage('Missing table name')
-         ->exists();
+        )->isInstanceOf(\LogicException::class)
+         ->hasMessage('Missing table name.');
     }
 
 
@@ -112,15 +115,13 @@ class DBmysqlIterator extends DbTestCase
      */
     public function testNoTableWithoutWhere()
     {
-        $this->when(
+        $this->exception(
             function () {
                 $it = $this->it->execute('');
                 $this->string($it->getSql())->isIdenticalTo('SELECT *');
             }
-        )->error()
-         ->withType(E_USER_ERROR)
-         ->withMessage('Missing table name')
-         ->exists();
+        )->isInstanceOf(\LogicException::class)
+         ->hasMessage('Missing table name.');
     }
 
 
@@ -129,15 +130,13 @@ class DBmysqlIterator extends DbTestCase
      */
     public function testNoTableWithoutWhereBis()
     {
-        $this->when(
+        $this->exception(
             function () {
                 $it = $this->it->execute(['FROM' => []]);
                 $this->string('SELECT *', $it->getSql(), 'No table');
             }
-        )->error()
-         ->withType(E_USER_ERROR)
-         ->withMessage('Missing table name')
-         ->exists();
+        )->isInstanceOf(\LogicException::class)
+         ->hasMessage('Missing table name.');
     }
 
 
@@ -272,14 +271,12 @@ class DBmysqlIterator extends DbTestCase
         $it = $this->it->execute('foo', ['ORDER' => [new \QueryExpression("CASE WHEN `foo` LIKE 'test%' THEN 0 ELSE 1 END"), 'bar ASC', 'baz DESC']]);
         $this->string($it->getSql())->isIdenticalTo("SELECT * FROM `foo` ORDER BY CASE WHEN `foo` LIKE 'test%' THEN 0 ELSE 1 END, `bar` ASC, `baz` DESC");
 
-        $this->when(
+        $this->exception(
             function () {
-                $it = $this->it->execute('foo', ['ORDER' => [new \stdClass()]]);
+                $this->it->execute('foo', ['ORDER' => [new \stdClass()]]);
             }
-        )->error()
-         ->withType(E_USER_ERROR)
-         ->withMessage('Invalid order clause')
-         ->exists();
+        )->isInstanceOf(\LogicException::class)
+         ->hasMessage('Invalid order clause.');
     }
 
 
@@ -330,14 +327,12 @@ class DBmysqlIterator extends DbTestCase
         $it = $this->it->execute('foo', ['FIELDS' => 'bar', 'COUNT' => 'cpt', 'DISTINCT' => true]);
         $this->string($it->getSql())->isIdenticalTo('SELECT COUNT(DISTINCT `bar`) AS cpt FROM `foo`');
 
-        $this->when(
+        $this->exception(
             function () {
-                $it = $this->it->execute('foo', ['COUNT' => 'cpt', 'DISTINCT' => true]);
+                $this->it->execute('foo', ['COUNT' => 'cpt', 'DISTINCT' => true]);
             }
-        )->error()
-         ->withType(E_USER_ERROR)
-         ->withMessage("With COUNT and DISTINCT, you must specify exactly one field, or use 'COUNT DISTINCT'")
-         ->exists();
+        )->isInstanceOf(\LogicException::class)
+         ->hasMessage("With COUNT and DISTINCT, you must specify exactly one field, or use 'COUNT DISTINCT'.");
     }
 
 
@@ -397,29 +392,25 @@ class DBmysqlIterator extends DbTestCase
 
         $this->exception(
             function () {
-                $it = $this->it->execute('foo', ['LEFT JOIN' => ['ON' => ['a' => 'id', 'b' => 'a_id']]]);
+                $this->it->execute('foo', ['LEFT JOIN' => ['ON' => ['a' => 'id', 'b' => 'a_id']]]);
             }
-        )
-         ->isInstanceOf('RuntimeException')
+        )->isInstanceOf(\LogicException::class)
          ->hasMessage('BAD JOIN');
 
-        $this->when(
-            function () {
-                $it = $this->it->execute('foo', ['LEFT JOIN' => 'bar']);
-            }
-        )->error()
-         ->withType(E_USER_ERROR)
-         ->withMessage('BAD JOIN, value must be [ table => criteria ]')
-         ->exists();
 
-        $this->when(
+        $this->exception(
             function () {
-                $it = $this->it->execute('foo', ['INNER JOIN' => ['bar' => ['FKEY' => 'akey']]]);
+                $this->it->execute('foo', ['LEFT JOIN' => 'bar']);
             }
-        )->error()
-         ->withType(E_USER_ERROR)
-         ->withMessage('BAD FOREIGN KEY, should be [ table1 => key1, table2 => key2 ] or [ table1 => key1, table2 => key2, [criteria]]')
-         ->exists();
+        )->isInstanceOf(\LogicException::class)
+         ->hasMessage('BAD JOIN, value must be [ table => criteria ].');
+
+        $this->exception(
+            function () {
+                $this->it->execute('foo', ['INNER JOIN' => ['bar' => ['FKEY' => 'akey']]]);
+            }
+        )->isInstanceOf(\LogicException::class)
+         ->hasMessage('BAD FOREIGN KEY, should be [ table1 => key1, table2 => key2 ] or [ table1 => key1, table2 => key2, [criteria]].');
 
        //test conditions
         $it = $this->it->execute(
@@ -487,11 +478,15 @@ class DBmysqlIterator extends DbTestCase
 
         $this->exception(
             function () {
-                $it = $this->it->analyseJoins(['LEFT OUTER JOIN' => ['ON' => ['a' => 'id', 'b' => 'a_id']]]);
+                $this->it->analyseJoins(['LEFT OUTER JOIN' => ['ON' => ['a' => 'id', 'b' => 'a_id']]]);
             }
-        )
-         ->isInstanceOf('RuntimeException')
-         ->hasMessage('BAD JOIN');
+        )->isInstanceOf(\LogicException::class)
+         ->hasMessage('Invalid JOIN type `LEFT OUTER JOIN`.');
+
+        // QueryExpression
+        $expression = "LEFT JOIN xxxx";
+        $join = $this->it->analyseJoins(['LEFT JOIN' => [new QueryExpression($expression)]]);
+        $this->string($join)->isIdenticalTo($expression);
     }
 
     public function testHaving()
@@ -621,25 +616,21 @@ class DBmysqlIterator extends DbTestCase
 
     public function testNoFieldGroupBy()
     {
-        $this->when(
+        $this->exception(
             function () {
                 $it = $this->it->execute(['foo'], ['GROUPBY' => []]);
                 $this->string('SELECT * FROM `foo`', $it->getSql(), 'No group by field');
             }
-        )->error()
-         ->withType(E_USER_ERROR)
-         ->withMessage('Missing group by field')
-         ->exists();
+        )->isInstanceOf(\LogicException::class)
+         ->hasMessage('Missing group by field.');
 
-        $this->when(
+        $this->exception(
             function () {
                 $it = $this->it->execute(['foo'], ['GROUP' => []]);
                 $this->string('SELECT * FROM `foo`', $it->getSql(), 'No group by field');
             }
-        )->error()
-         ->withType(E_USER_ERROR)
-         ->withMessage('Missing group by field')
-         ->exists();
+        )->isInstanceOf(\LogicException::class)
+         ->hasMessage('Missing group by field.');
     }
 
     public function testRange()

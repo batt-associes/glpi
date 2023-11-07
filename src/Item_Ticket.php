@@ -186,6 +186,7 @@ class Item_Ticket extends CommonItilObject_Item
      **/
     public static function itemAddForm(Ticket $ticket, $options = [])
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $params = [
@@ -506,9 +507,9 @@ class Item_Ticket extends CommonItilObject_Item
                     $item->getFromDB($data["id"]);
                     echo "<td class='center'>" . $item->getKBLinks() . "</td>";
                     echo "<td class='center'>";
-                    echo Dropdown::getDropdownName("glpi_states", $data['states_id']) . "</td>";
+                    echo (isset($data["states_id"]) ? Dropdown::getDropdownName("glpi_states", $data['states_id']) : '') . "</td>";
                     echo "<td class='center'>";
-                    echo Dropdown::getDropdownName("glpi_locations", $data['locations_id']) . "</td>";
+                    echo (isset($data['locations_id']) ? Dropdown::getDropdownName("glpi_locations", $data['locations_id']) : '') . "</td>";
                     echo "</tr>";
                 }
                 $totalnb += $nb;
@@ -583,7 +584,11 @@ class Item_Ticket extends CommonItilObject_Item
      **/
     public static function dropdownMyDevices($userID = 0, $entity_restrict = -1, $itemtype = 0, $items_id = 0, $options = [])
     {
-        global $DB, $CFG_GLPI;
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
+        global $CFG_GLPI, $DB;
 
         $params = ['tickets_id' => 0,
             'used'       => [],
@@ -928,6 +933,7 @@ class Item_Ticket extends CommonItilObject_Item
      **/
     public static function dropdown($options = [])
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
        // Default values
@@ -1012,6 +1018,7 @@ class Item_Ticket extends CommonItilObject_Item
      **/
     public static function showFormMassiveAction($ma)
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         switch ($ma->getAction()) {
@@ -1200,10 +1207,6 @@ class Item_Ticket extends CommonItilObject_Item
             $item = getItemForItemtype($this->fields['itemtype']);
             $item->getFromDB($this->fields['items_id']);
 
-            $link = $item->getFormURL();
-            if (!isset($link)) {
-                return;
-            }
             if (($name = $item->getName()) == NOT_AVAILABLE) {
                //TRANS: %1$s is the itemtype, %2$d is the id of the item
                 $item->fields['name'] = sprintf(
@@ -1252,10 +1255,6 @@ class Item_Ticket extends CommonItilObject_Item
             $item = getItemForItemtype($this->fields['itemtype']);
             $item->getFromDB($this->fields['items_id']);
 
-            $link = $item->getFormURL();
-            if (!isset($link)) {
-                return;
-            }
             if (isset($this->input['_no_message_link'])) {
                 $display = $item->getNameID();
             } else {

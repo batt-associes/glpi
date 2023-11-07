@@ -69,6 +69,7 @@ class Infocom extends CommonDBChild
      **/
     public static function canApplyOn($item)
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
        // All devices are subjects to infocom !
@@ -98,6 +99,7 @@ class Infocom extends CommonDBChild
      **/
     public static function getItemtypesThatCanHave()
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         $types = array_merge(
@@ -483,7 +485,11 @@ class Infocom extends CommonDBChild
      **/
     public static function cronInfocom($task = null)
     {
-        global $DB, $CFG_GLPI;
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
+        global $CFG_GLPI, $DB;
 
         if (!$CFG_GLPI["use_notifications"]) {
             return 0;
@@ -762,7 +768,11 @@ class Infocom extends CommonDBChild
      **/
     public static function showDisplayLink($itemtype, $device_id)
     {
-        global $DB, $CFG_GLPI;
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
+        global $CFG_GLPI, $DB;
 
         if (
             !Session::haveRight(self::$rightname, READ)
@@ -824,7 +834,7 @@ class Infocom extends CommonDBChild
                 throw new \RuntimeException('Empty date');
             }
             $fiscaldate = new \DateTime($fiscaldate, new DateTimeZone($TZ));
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Session::addMessageAfterRedirect(
                 __('Please fill you fiscal year date in preferences.'),
                 false,
@@ -843,7 +853,7 @@ class Infocom extends CommonDBChild
             } else {
                 $usedate = new \DateTime($buydate, new DateTimeZone($TZ));
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Session::addMessageAfterRedirect(
                 __('Please fill either buy or use date in preferences.'),
                 false,
@@ -939,9 +949,9 @@ class Infocom extends CommonDBChild
      * @param number  $va            valeur d'acquisition
      * @param number  $duree         duree d'amortissement
      * @param number  $coef          coefficient d'amortissement
-     * @param string  $date_achat    Date d'achat
-     * @param string  $date_use      Date d'utilisation
-     * @param string  $date_tax      date du debut de l'annee fiscale
+     * @param string|null  $date_achat    Date d'achat
+     * @param string|null  $date_use      Date d'utilisation
+     * @param string|null  $date_tax      date du debut de l'annee fiscale
      * @param string  $view          "n" pour l'annee en cours ou "all" pour le tableau complet (default 'n')
      *
      * @return float|array
@@ -1024,7 +1034,15 @@ class Infocom extends CommonDBChild
                     $dureedegressif = $duree - $dureelineaire; // calcul de la duree de l'amortissement
                                                         // en mode degressif
                     $mrt            = $va;
-                  // amortissement degressif pour les premieres annees
+
+                    $tab = [
+                        'annee'    => [],
+                        'vcnetdeb' => [],
+                        'vcnetfin' => [],
+                        'annuite'  => [],
+                    ];
+
+                    // amortissement degressif pour les premieres annees
                     for ($i = 1; $i <= $dureedegressif; $i++) {
                         $tab['annee'][$i]    = $date_Y + $i - 1;
                         $tab['vcnetdeb'][$i] = $mrt; // Pour chaque annee on calcule la valeur comptable nette
@@ -1663,7 +1681,8 @@ class Infocom extends CommonDBChild
             'table'              => $this->getTable(),
             'field'              => 'itemtype',
             'name'               => _n('Type', 'Types', 1),
-            'datatype'           => 'itemtype',
+            'datatype'           => 'itemtypename',
+            'itemtype_list'      => 'infocom_types',
             'massiveaction'      => false
         ];
 
@@ -1699,6 +1718,14 @@ class Infocom extends CommonDBChild
             'field'              => 'is_recursive',
             'name'               => __('Child entities'),
             'datatype'           => 'bool'
+        ];
+
+        $tab[] = [
+            'id'                 => '173',
+            'table'              => 'glpi_businesscriticities',
+            'field'              => 'completename',
+            'name'               => _n('Business criticity', 'Business criticities', 1),
+            'datatype'           => 'dropdown'
         ];
 
         return $tab;
@@ -1745,7 +1772,7 @@ class Infocom extends CommonDBChild
             return __('Never');
         }
 
-        if (($from == null) || empty($from)) {
+        if (empty($from)) {
             return "";
         }
 
@@ -1864,6 +1891,7 @@ class Infocom extends CommonDBChild
      */
     public static function getTypes($where)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $types_iterator = $DB->request([

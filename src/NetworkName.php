@@ -162,7 +162,7 @@ class NetworkName extends FQDNLabel
             'table'              => $this->getTable(),
             'field'              => 'itemtype',
             'name'               => _n('Type', 'Types', 1),
-            'datatype'           => 'itemtype',
+            'datatype'           => 'itemtypename',
             'massiveaction'      => false
         ];
 
@@ -273,6 +273,7 @@ class NetworkName extends FQDNLabel
 
     public function post_updateItem($history = 1)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $this->post_workOnItem();
@@ -325,6 +326,7 @@ class NetworkName extends FQDNLabel
      **/
     public static function unaffectAddressesOfItem($items_id, $itemtype)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $iterator = $DB->request([
@@ -397,7 +399,11 @@ class NetworkName extends FQDNLabel
      **/
     public static function showFormForNetworkPort($networkPortID)
     {
-        global $DB, $CFG_GLPI;
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
+        global $CFG_GLPI, $DB;
 
         $name         = new self();
         $number_names = 0;
@@ -559,6 +565,7 @@ class NetworkName extends FQDNLabel
         HTMLTableCell $father = null,
         array $options = []
     ) {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $column_name = __CLASS__;
@@ -781,6 +788,7 @@ class NetworkName extends FQDNLabel
         }
 
         $table_options = ['createRow' => true];
+        $start = 0;
 
         if (
             ($item->getType() == 'FQDN')
@@ -788,8 +796,6 @@ class NetworkName extends FQDNLabel
         ) {
             if (isset($_GET["start"])) {
                 $start = $_GET["start"];
-            } else {
-                $start = 0;
             }
 
             if (!empty($_GET["order"])) {
@@ -899,6 +905,7 @@ class NetworkName extends FQDNLabel
      **/
     public static function countForItem(CommonDBTM $item)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         switch ($item->getType()) {

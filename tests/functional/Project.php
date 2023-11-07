@@ -37,8 +37,10 @@ namespace tests\units;
 
 use DbTestCase;
 use Glpi\Team\Team;
+use ProjectState;
 use ProjectTask;
 use ProjectTeam;
+use Search;
 
 /* Test for inc/project.class.php */
 class Project extends DbTestCase
@@ -76,7 +78,7 @@ class Project extends DbTestCase
         $this->integer((int) $projecttask_id_1)->isGreaterThan(0);
         $projecttask_id_2 = $projecttask->add([
             'name' => 'Project Task 2',
-            'projects_id' => 0,
+            'projects_id' => $project_id_2,
             'projecttasks_id' => $projecttask_id_1,
             'projecttasktemplates_id' => 0
         ]);
@@ -97,8 +99,8 @@ class Project extends DbTestCase
         $this->boolean($project_1->getFromDB($project_id_1))->isTrue();
         $this->boolean($project_2->getFromDB($project_id_2))->isTrue();
        // Test parent and parent's parent percent done
-        $this->integer($project_2->fields['percent_done'])->isEqualTo(5);
-        $this->integer($project_1->fields['percent_done'])->isEqualTo(5);
+        $this->integer($project_2->fields['percent_done'])->isEqualTo(3);
+        $this->integer($project_1->fields['percent_done'])->isEqualTo(3);
 
         $projecttask_1 = new \ProjectTask();
         $this->boolean($projecttask_1->getFromDB($projecttask_id_1))->isTrue();
@@ -118,8 +120,8 @@ class Project extends DbTestCase
         $this->integer($projecttask_1->fields['percent_done'])->isEqualTo(40);
        // Check that the child project wasn't changed
         $this->integer($project_3->fields['percent_done'])->isEqualTo(10);
-        $this->integer($project_2->fields['percent_done'])->isEqualTo(25);
-        $this->integer($project_1->fields['percent_done'])->isEqualTo(25);
+        $this->integer($project_2->fields['percent_done'])->isEqualTo(30);
+        $this->integer($project_1->fields['percent_done'])->isEqualTo(30);
 
        // Test that percent done updates on delete and restore
         $project_3->delete(['id' => $project_id_3]);
@@ -127,7 +129,7 @@ class Project extends DbTestCase
         $this->integer($project_2->fields['percent_done'])->isEqualTo(40);
         $project_3->restore(['id' => $project_id_3]);
         $this->boolean($project_2->getFromDB($project_id_2))->isTrue();
-        $this->integer($project_2->fields['percent_done'])->isEqualTo(25);
+        $this->integer($project_2->fields['percent_done'])->isEqualTo(30);
     }
 
     public function testAutocalculatePercentDoneOnTaskAddAndDelete()
@@ -443,5 +445,55 @@ class Project extends DbTestCase
 
         // Compare tasks
         $this->array($tasks_clone)->isEqualTo($expected);
+    }
+
+    /**
+     * Functionnal test to ensure that project's states colors are shown in
+     * the search results
+     */
+    public function testProjectStateColorInSearchResults(): void
+    {
+        $this->login();
+        $entity = getItemByTypeName("Entity", "_test_root_entity", true);
+
+        // Create some unique state colors
+        list(
+            $state1,
+            $state2,
+            $state3
+        ) = $this->createItems(ProjectState::getType(), [
+            ['name' => 'state1', 'color' => '#000001'],
+            ['name' => 'state2', 'color' => '#000002'],
+            ['name' => 'state3', 'color' => '#000003'],
+        ]);
+
+        // Create projects using these states
+        $this->createItems(\Project::getType(), [
+            ['name' => 'project1a', 'projectstates_id' => $state1->getID(), 'entities_id' => $entity],
+            ['name' => 'project2a', 'projectstates_id' => $state2->getID(), 'entities_id' => $entity],
+            ['name' => 'project2b', 'projectstates_id' => $state2->getID(), 'entities_id' => $entity],
+            ['name' => 'project3a', 'projectstates_id' => $state3->getID(), 'entities_id' => $entity],
+            ['name' => 'project3b', 'projectstates_id' => $state3->getID(), 'entities_id' => $entity],
+            ['name' => 'project3c', 'projectstates_id' => $state3->getID(), 'entities_id' => $entity],
+        ]);
+
+        // Execute search
+        $params = [
+            'display_type' => Search::HTML_OUTPUT,
+            'criteria'     => [],
+            'item_type'    => \Project::getType(),
+            'is_deleted'   => 0,
+            'as_map'       => 0,
+            'forcedisplay' => [/* State */ 12],
+        ];
+        ob_start();
+        Search::showList($params['item_type'], $params);
+        $html = ob_get_contents();
+        ob_end_clean();
+
+        // Check results
+        $this->integer(substr_count($html, "background-color: #000001;"))->isEqualTo(1);
+        $this->integer(substr_count($html, "background-color: #000002;"))->isEqualTo(2);
+        $this->integer(substr_count($html, "background-color: #000003;"))->isEqualTo(3);
     }
 }

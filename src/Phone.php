@@ -165,6 +165,7 @@ class Phone extends CommonDBTM
      **/
     public function getLinkedItems()
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $iterator = $DB->request([
@@ -455,7 +456,7 @@ class Phone extends CommonDBTM
 
         $tab = array_merge($tab, Notepad::rawSearchOptionsToAdd());
 
-        $tab = array_merge($tab, Socket::rawSearchOptionsToAdd(get_class($this)));
+        $tab = array_merge($tab, Socket::rawSearchOptionsToAdd());
 
         return $tab;
     }
@@ -476,7 +477,7 @@ class Phone extends CommonDBTM
         ];
 
         $tab[] = [
-            'id'                 => '132',
+            'id'                 => '1432',
             'table'              => 'glpi_computers_items',
             'field'              => 'id',
             'name'               => _x('quantity', 'Number of phones'),

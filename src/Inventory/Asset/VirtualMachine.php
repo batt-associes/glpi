@@ -189,6 +189,7 @@ class VirtualMachine extends InventoryAsset
      */
     protected function getExisting(): array
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $db_existing = [];
@@ -228,7 +229,7 @@ class VirtualMachine extends InventoryAsset
                 foreach (ComputerVirtualMachine::getUUIDRestrictCriteria($handled_input['uuid'] ?? '') as $cleaned_uuid) {
                     $sinput = [
                         'name'                     => $handled_input['name'] ?? '',
-                        'uuid'                     => $cleaned_uuid ?? '',
+                        'uuid'                     => Sanitizer::unsanitize($cleaned_uuid ?? ''),
                         'virtualmachinesystems_id' => $handled_input['virtualmachinesystems_id'] ?? 0
                     ];
 
@@ -258,20 +259,9 @@ class VirtualMachine extends InventoryAsset
         }
 
         if ((!$this->main_asset || !$this->main_asset->isPartial()) && count($db_vms) != 0) {
-           // Delete virtual machines links in DB
+            // Delete virtual machines links in DB
             foreach ($db_vms as $idtmp => $data) {
-                if (isset($data['uuid']) && $data['uuid'] != '') {
-                    $vm = new \stdClass();
-                    $vm->uuid = $data['uuid'];
-                    $computers_vm_id = $this->getExistingVMAsComputer($vm);
-                    if ($computers_vm_id) {
-                        $computer->getFromDB($computers_vm_id);
-                        if ($computer->fields['is_dynamic'] == 1) {
-                            $computer->delete(['id' => $computers_vm_id], false);
-                        }
-                    }
-                }
-                $computerVirtualmachine->delete(['id' => $idtmp]);
+                $computerVirtualmachine->delete(['id' => $idtmp], 1);
             }
         }
 
@@ -296,6 +286,7 @@ class VirtualMachine extends InventoryAsset
      */
     protected function createVmComputer()
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $computervm = new Computer();
@@ -332,7 +323,7 @@ class VirtualMachine extends InventoryAsset
                         $computers_vm_id = $computervm->add($input);
                     } else {
                         //refused by rules
-                        return;
+                        continue;
                     }
                 } else {
                     // Update computer
@@ -348,6 +339,19 @@ class VirtualMachine extends InventoryAsset
                 if (isset($this->allports[$vm->uuid])) {
                     $this->ports = $this->allports[$vm->uuid];
                     $this->handlePorts('Computer', $computers_vm_id);
+                }
+
+                //manage operating system
+                if (property_exists($vm, 'operatingsystem')) {
+                    $os = new OperatingSystem($computervm, (array)$vm->operatingsystem);
+                    if ($os->checkConf($this->conf)) {
+                        $os->setAgent($this->getAgent());
+                        $os->setExtraData($this->data);
+                        $os->setEntityID($computervm->getEntityID());
+                        $os->prepare();
+                        $os->handleLinks();
+                        $os->handle();
+                    }
                 }
 
                 //manage extra components created form hosts information
@@ -373,6 +377,7 @@ class VirtualMachine extends InventoryAsset
 
     public function getExistingVMAsComputer(\stdClass $vm): int
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $computers_vm_id = 0;

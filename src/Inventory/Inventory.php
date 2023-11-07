@@ -141,7 +141,7 @@ class Inventory
             $data = json_decode($converter->convert($contentdata));
         } else {
             $this->inventory_tmpfile = tempnam(GLPI_INVENTORY_DIR, 'json_');
-            $contentdata = json_encode($data);
+            $contentdata = json_encode($data, JSON_PRETTY_PRINT);
         }
 
         try {
@@ -238,6 +238,7 @@ class Inventory
      */
     public function doInventory($test_rules = false)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         //check
@@ -255,9 +256,8 @@ class Inventory
             $_SESSION['glpiname'] = $_SESSION['glpiinventoryuserrunning'];
         }
 
+        $main_start = microtime(true); //bench
         try {
-            //bench
-            $main_start = microtime(true);
             if (!$DB->inTransaction()) {
                 $DB->beginTransaction();
             }
@@ -282,12 +282,25 @@ class Inventory
             $all_props = get_object_vars($contents);
             unset($all_props['versionclient'], $all_props['versionprovider']); //already handled in extractMetadata
 
+            $empty_props = [];
+            if (
+                (!property_exists($this->raw_data, 'itemtype') || $this->raw_data->itemtype == 'Computer')
+                && (!property_exists($this->raw_data, 'partial') || !$this->raw_data->partial)
+            ) {
+                //if inventory is not partial, we consider following properties are empty if not present; so they'll be removed
+                $empty_props = [
+                    'virtualmachines'
+                ];
+            }
+
             $data = [];
             //parse schema properties and handle if it exists in raw_data
             //it is important to keep schema order, changes may have side effects
             foreach ($properties as $property) {
                 if (property_exists($contents, $property)) {
                     $data[$property] = $contents->$property;
+                } else if (in_array($property, $empty_props)) {
+                    $data[$property] = [];
                 }
             }
 
@@ -350,7 +363,7 @@ class Inventory
                     $DB->commit();
                 }
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $DB->rollback();
             throw $e;
         } finally {
@@ -398,9 +411,9 @@ class Inventory
 
 
     /**
-     * Get rawdata
+     * Get raw data
      *
-     * @return array
+     * @return object|null
      */
     public function getRawData(): ?object
     {
@@ -876,6 +889,7 @@ class Inventory
      **/
     public static function cronCleanorphans($task)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $cron_status = 0;

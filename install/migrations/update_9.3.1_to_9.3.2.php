@@ -44,6 +44,10 @@
  **/
 function update931to932()
 {
+    /**
+     * @var \DBmysql $DB
+     * @var \Migration $migration
+     */
     global $DB, $migration;
 
     $current_config   = Config::getConfigurationValues('core');
@@ -61,8 +65,8 @@ function update931to932()
             'items_id' => 0,
         ],
     ];
-    $DB->delete(Item_Rack::getTable(), $corrupted_criteria);
-    $DB->delete(Item_Enclosure::getTable(), $corrupted_criteria);
+    $DB->deleteOrDie(Item_Rack::getTable(), $corrupted_criteria);
+    $DB->deleteOrDie(Item_Enclosure::getTable(), $corrupted_criteria);
     /** /Clean rack/enclosure items corrupted relations */
 
    // limit state visibility for enclosures and pdus

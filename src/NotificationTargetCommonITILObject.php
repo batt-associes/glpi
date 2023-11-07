@@ -135,7 +135,7 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget
             'add_followup'      => __("New followup"),
             'update_followup'   => __('Update of a followup'),
             'delete_followup'   => __('Deletion of a followup'),
-            'user_mention'      => __('User mentionned'),
+            'user_mention'      => __('User mentioned'),
         ];
 
         asort($events);
@@ -152,7 +152,11 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget
      */
     public function addLinkedUserByType($type)
     {
-        global $DB, $CFG_GLPI;
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
+        global $CFG_GLPI, $DB;
 
         $userlinktable = getTableForItemType($this->obj->userlinkclass);
         $fkfield       = $this->obj->getForeignKeyField();
@@ -245,6 +249,7 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget
      */
     public function addLinkedGroupByType($type)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $grouplinktable = getTableForItemType($this->obj->grouplinkclass);
@@ -279,6 +284,7 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget
      */
     public function addLinkedGroupWithoutSupervisorByType($type)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $grouplinktable = getTableForItemType($this->obj->grouplinkclass);
@@ -309,6 +315,7 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget
      */
     public function addLinkedGroupSupervisorByType($type)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $grouplinktable = getTableForItemType($this->obj->grouplinkclass);
@@ -346,6 +353,7 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget
      */
     public function addOldAssignTechnician()
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         if (
@@ -406,6 +414,7 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget
      */
     public function addSupplier($sendprivate = false)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         if (
@@ -452,6 +461,7 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget
      */
     public function addValidationApprover($options = [])
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         if (isset($options['validation_id'])) {
@@ -485,6 +495,7 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget
      **/
     public function addValidationRequester($options = [])
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         if (isset($options['validation_id'])) {
@@ -519,6 +530,7 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget
      */
     public function addFollowupAuthor($options = [])
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         if (isset($options['followup_id'])) {
@@ -556,6 +568,7 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget
      */
     public function addTaskAuthor($options = [])
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
        // In case of delete task pass user id
@@ -603,6 +616,7 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget
      */
     public function addTaskAssignUser($options = [])
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
        // In case of delete task pass user id
@@ -652,6 +666,7 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget
      */
     public function addTaskAssignGroup($options = [])
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
        // In case of delete task pass user id
@@ -680,6 +695,7 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget
 
     public function addAdditionnalInfosForTarget()
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $iterator = $DB->request([
@@ -719,6 +735,7 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget
 
     protected function getShowPrivateInfo(array $data)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         if (!isset($data['users_id']) || count($this->private_profiles) === 0) {
@@ -742,6 +759,7 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget
 
     protected function getIsSelfServiceInfo(array $data)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         if (!isset($data['users_id']) || count($this->central_profiles) === 0) {
@@ -810,7 +828,7 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget
     {
 
         if ($event === 'user_mention') {
-            $this->addTarget(Notification::MENTIONNED_USER, __('Mentionned user'));
+            $this->addTarget(Notification::MENTIONNED_USER, __('Mentioned user'));
             return; // Do not propose more targets
         }
 
@@ -1080,6 +1098,10 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget
      **/
     public function getDataForObject(CommonDBTM $item, array $options, $simple = false)
     {
+        /**
+         * @var array $CFG_GLPI
+         * @var \DBmysql $DB
+         */
         global $CFG_GLPI, $DB;
 
         $is_self_service = $options['additionnaloption']['is_self_service'] ?? true;
@@ -1423,7 +1445,7 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget
                     ]
                 ],
                 'WHERE'     => [
-                    $item->getAssociatedDocumentsCriteria(),
+                    $item->getAssociatedDocumentsCriteria(true),
                     'timeline_position' => ['>', CommonITILObject::NO_TIMELINE], // skip inlined images
                 ]
             ]);
@@ -1582,13 +1604,13 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget
             $data['timelineitems'] = [];
 
             $options = [
-                'with_documents'    => false,
-                'with_logs'         => false,
-                'with_validations'  => false,
-                'expose_private'    => $show_private,
-                'bypass_rights'     => true,
-                'sort_by_date_desc' => true,
-                'is_self_service'   => $is_self_service,
+                'with_documents'     => false,
+                'with_logs'          => false,
+                'with_validations'   => false,
+                'sort_by_date_desc'  => true,
+
+                'check_view_rights'  => false,
+                'hide_private_items' => $is_self_service || !$show_private,
             ];
 
             $timeline = $item->getTimelineItems($options);

@@ -106,6 +106,7 @@ class NotificationTemplate extends CommonDBTM
 
     public function showForm($ID, array $options = [])
     {
+        /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         if (!Config::canUpdate()) {
@@ -560,6 +561,7 @@ class NotificationTemplate extends CommonDBTM
      **/
     public function getByLanguage($language)
     {
+        /** @var \DBmysql $DB */
         global $DB;
 
         $iterator = $DB->request([
@@ -613,7 +615,7 @@ class NotificationTemplate extends CommonDBTM
         $mailing_options['items_id']     = method_exists($target->obj, "getField")
          ? $target->obj->getField('id')
          : 0;
-        if (isset($target->obj->documents)) {
+        if (property_exists($target->obj, 'documents') && isset($target->obj->documents)) {
             $mailing_options['documents'] = $target->obj->documents;
         }
 
