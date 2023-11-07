@@ -172,8 +172,7 @@
             "compile": [
                 "bash bin/install-deps.sh"
             ],
-            "nginx-includes": ["./nginx.conf"],
-            "nginx-http-includes": ["./nginx-http.conf"]
+            "nginx-includes": ["./nginx.conf"]
         }
     }
 }
