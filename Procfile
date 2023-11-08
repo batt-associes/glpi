@@ -1,1 +1,0 @@
-web: bash bin/start-app.sh
