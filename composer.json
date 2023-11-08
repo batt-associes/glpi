@@ -170,7 +170,7 @@
     "extra": {
         "paas": {
             "compile": [
-                "bash bin/install-deps.sh"
+                "bash bin/install-and-update.sh"
             ],
             "nginx-includes": ["./nginx.conf"]
         }
