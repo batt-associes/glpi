@@ -34,8 +34,21 @@ Then set this file as an environment variable for your Scalingo project and writ
 Installing the database via the [installation wizard][install-wizard] is not working as it's taking more than 30
 secondes and Scalingo has a 30 secondes hard limit for request before throwing a 504 HTTP error.
 
+## Add Azure AD login
+
+Use of open source plugin described on [this page][forum-sso]: `glpi-singlesignon`.
+
+### Troubleshooting
+
+- All files of plugin were copied to `plugins` folder, there might be a better way with composer?
+  - After every installlation, GLPI deactivates all plugins, make sure to activate it back
+- Be careful to properly set up Azure authentication web app
+- Issue with PHP-FPM config around `security.limit_extensions`, fixed with custom Nginx config and other workarounds
+
 [security-key]: https://glpi-install.readthedocs.io/en/latest/command-line.html#security-key
 
 [secret-file]: https://doc.scalingo.com/platform/app/secret-file-in-app
 
 [install-wizard]: https://glpi-install.readthedocs.io/en/latest/install/wizard.html
+
+[forum-sso]: https://forum.glpi-project.org/viewtopic.php?id=285067
