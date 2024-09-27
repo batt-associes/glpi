@@ -12,9 +12,10 @@ php composer-setup.php
 php -r "unlink('composer-setup.php');"
 
 php composer.phar install --ansi --no-interaction
-npm install --no-save
-npm run-script build
+"$HOME/.nvm/versions/node/v20.17.0/bin/npm" install --no-save
+"$HOME/.nvm/versions/node/v20.17.0/bin/npm" run-script build
 
+php bin/console dependencies install
 php bin/console locales:compile
 
 # Create database crpyting key from environment
