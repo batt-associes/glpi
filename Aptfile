@@ -1,1 +1,3 @@
 gettext
+libldap2-dev
+php-ldap
