@@ -120,7 +120,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Glpi\\": "src/"
+            "Glpi\\": "./src/*"
         }
     },
     "autoload-dev": {
